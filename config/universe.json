@@ -1,0 +1,13 @@
+{
+  "tickers": [
+    "AAPL", "MSFT", "NVDA", "AMD", "TSLA", "GOOGL",
+    "META", "AMZN", "PLTR", "CRWD", "PANW", "AMD",
+    "IWM", "SPY", "QQQ"
+  ],
+  "proxies": {
+    "SPY": "IWM",
+    "QQQ": "IWM",
+    "NVDA": "AMD",
+    "AMD": "NVDA"
+  }
+}
