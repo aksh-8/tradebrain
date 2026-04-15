@@ -7,62 +7,59 @@ from typing import Optional
 import requests
 
 from bot.models import Intake, Direction, Timeframe
+from bot.correlations import (
+    resolve_company_name,
+    find_ticker_in_text,
+    detect_direction,
+    detect_timeframe,
+)
 
 OLLAMA_URL = "http://localhost:11434/api/generate"
 MODEL_NAME = "qwen2.5:7b"
 
-TICKER_RE = re.compile(r"\$([A-Z]{1,6})\b")
+TICKER_RE       = re.compile(r"\$([A-Z]{1,6})\b")
 PLAIN_TICKER_RE = re.compile(r"\b([A-Z]{2,6})\b")
-
-DIRECTION_KEYWORDS = {
-    "bullish": ["bullish", "calls", "call", "long", "buy", "breakout",
-                "upside", "squeeze", "green", "push", "moon", "surge"],
-    "bearish": ["bearish", "puts", "put", "short", "sell", "breakdown",
-                "downside", "drop", "red", "crash", "dump", "fall"],
-}
-
-TIMEFRAME_KEYWORDS = {
-    "this week":  ["today", "tomorrow", "this week", "eod", "intraday", "0dte"],
-    "this month": ["this month", "monthly", "end of month", "few weeks"],
-    "1-3 months": ["months", "quarter", "q1", "q2", "q3", "q4", "swing"],
-}
 
 KNOWN_TICKERS = {
     "AAPL", "MSFT", "NVDA", "AMD", "TSLA", "GOOGL", "GOOG",
     "META", "AMZN", "PLTR", "CRWD", "PANW", "IWM", "SPY", "QQQ",
     "INTC", "AVGO", "NFLX", "UBER", "COIN", "MSTR", "RKLB",
+    "MU", "ARM", "AMAT", "LRCX", "ANET", "NBIS", "APLD", "CRWV",
+    "MARA", "RIOT", "RGTI", "QBTS", "HIMS", "OSCR", "UNH", "NET",
+    "SNOW", "DDOG", "NOW", "CRM", "SOUN", "SMR", "MRVL", "TSM",
 }
 
 
 # ---------------------------------------------------------------------------
-# Fallback: pure regex parser (no Ollama needed)
+# Fallback: regex + correlations (no Ollama needed)
 # ---------------------------------------------------------------------------
 
 def _regex_parse(raw: str, budget: float) -> Intake:
-    upper = raw.upper()
+    upper = raw.lower()
 
-    # tickers — prefer $TICKER format, fall back to known list
+    # --- ticker extraction (3 passes) ---
+    # Pass 1: explicit $TICKER format
     tickers = TICKER_RE.findall(raw)
+
+    # Pass 2: company name lookup via correlations
     if not tickers:
-        tickers = [t for t in PLAIN_TICKER_RE.findall(upper) if t in KNOWN_TICKERS]
+        resolved = find_ticker_in_text(raw)
+        if resolved:
+            tickers = [resolved]
+
+    # Pass 3: plain uppercase token in known ticker set
+    if not tickers:
+        tickers = [t for t in PLAIN_TICKER_RE.findall(raw.upper()) if t in KNOWN_TICKERS]
+
     tickers = list(dict.fromkeys(tickers))  # deduplicate, preserve order
 
-    # direction
-    direction: Direction = "unknown"
-    lower = raw.lower()
-    for d, keywords in DIRECTION_KEYWORDS.items():
-        if any(k in lower for k in keywords):
-            direction = d  # type: ignore[assignment]
-            break
+    # --- direction via correlations (replaces inline keyword dict) ---
+    direction: Direction = detect_direction(raw)  # type: ignore[assignment]
 
-    # timeframe
-    timeframe: Timeframe = "unknown"
-    for tf, keywords in TIMEFRAME_KEYWORDS.items():
-        if any(k in lower for k in keywords):
-            timeframe = tf  # type: ignore[assignment]
-            break
+    # --- timeframe via correlations ---
+    timeframe: Timeframe = detect_timeframe(raw)  # type: ignore[assignment]
 
-    # thesis — anything beyond the ticker is the thesis
+    # --- thesis: full text if more than 2 words ---
     thesis: Optional[str] = raw.strip() if len(raw.split()) > 2 else None
 
     return Intake(
@@ -101,9 +98,9 @@ Extract and return ONLY valid JSON — no explanation, no markdown:
 }}
 
 Rules:
-- tickers: only real stock symbols, no words like CALL or PUT
-- direction: bullish = calls/long/up, bearish = puts/short/down
-- timeframe: infer from context clues like 'this week', 'swing trade', 'months'
+- tickers: only real stock symbols. If a company name is mentioned (e.g. Microsoft, Palantir), convert to ticker (MSFT, PLTR)
+- direction: bullish = calls/long/up/breakout/above SMA. bearish = puts/short/down/breakdown/below SMA
+- timeframe: infer from context — 'this week', 'swing trade', 'months', 'quarter'
 - thesis: clean summary of why this trade, null if just a ticker with no reasoning
 """
 
@@ -127,8 +124,7 @@ Rules:
                     raw_resp = part
                     break
 
-        parsed = json.loads(raw_resp)
-
+        parsed    = json.loads(raw_resp)
         tickers   = [str(t).upper().strip() for t in (parsed.get("tickers") or []) if t]
         direction = parsed.get("direction", "unknown")
         timeframe = parsed.get("timeframe", "unknown")
@@ -138,6 +134,10 @@ Rules:
             direction = "unknown"
         if timeframe not in ("this week", "this month", "1-3 months", "unknown"):
             timeframe = "unknown"
+
+        # fallback: if LLM missed direction, use correlations scoring
+        if direction == "unknown":
+            direction = detect_direction(raw)
 
         return Intake(
             raw_text  = raw,
@@ -159,12 +159,14 @@ Rules:
 def parse_intake(raw: str, budget: float) -> Intake:
     """
     Parses anything the user types into a structured Intake.
-    Uses LLM if Ollama is running, falls back to regex if not.
-    Works with:
-      - just a ticker:       "AMD"
-      - ticker + direction:  "AMD calls"
-      - full thesis:         "$AMD has seized the opportunity..."
-      - investor paraphrase: "Ark bullish on TSLA long term"
+    Uses LLM if Ollama is running, falls back to regex + correlations if not.
+
+    Handles:
+      - ticker only:          "AMD"
+      - ticker + direction:   "AMD calls"
+      - company name:         "Microsoft is above 50SMA"
+      - full thesis:          "$AMD has seized the opportunity..."
+      - investor paraphrase:  "Ark bullish on TSLA long term"
     """
     raw = raw.strip()
 
@@ -173,5 +175,4 @@ def parse_intake(raw: str, budget: float) -> Intake:
         if result and result.tickers:
             return result
 
-    # fallback to regex
     return _regex_parse(raw, budget)

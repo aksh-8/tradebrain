@@ -1,0 +1,305 @@
+{
+  "_note": "Sector correlation library for tradebrain. Leader = ticker that moves first and drags the sector. Beta = rough move multiplier vs leader. Correlated_sectors = sectors that tend to move together.",
+
+  "sectors": [
+    {
+      "name": "Semiconductors — compute",
+      "slug": "semis_compute",
+      "leader": "NVDA",
+      "leader_note": "NVDA is the anchor for the entire AI ecosystem. NVDA earnings/guidance moves the whole sector.",
+      "beta_to_leader": {
+        "AMD":  0.85,
+        "AVGO": 0.75,
+        "MRVL": 0.80,
+        "TSM":  0.70,
+        "ARM":  0.80,
+        "SMCI": 0.90,
+        "INTC": 0.40
+      },
+      "tickers": ["NVDA", "AMD", "AVGO", "MRVL", "TSM", "ARM", "SMCI", "INTC", "ALAB", "CRDO"],
+      "correlated_sectors": ["semis_equipment", "ai_infra", "big_tech"],
+      "macro_sensitivity": "high",
+      "risk_note": "NVDA earnings weeks cause IV spikes across entire sector. Avoid buying options into NVDA earnings unless trading the event itself."
+    },
+
+    {
+      "name": "Semiconductors — memory",
+      "slug": "semis_memory",
+      "leader": "MU",
+      "leader_note": "MU leads the memory cycle. Currently rotating ahead of GPU stocks as HBM demand tightens supply.",
+      "beta_to_leader": {
+        "SNDK": 0.85,
+        "WDC":  0.80,
+        "STX":  0.70
+      },
+      "tickers": ["MU", "SNDK", "WDC", "STX"],
+      "correlated_sectors": ["semis_compute", "semis_equipment"],
+      "macro_sensitivity": "high",
+      "risk_note": "Memory cycle is currently decoupled from GPU cycle — MU up does not always mean NVDA up. Treat as separate trade."
+    },
+
+    {
+      "name": "Semiconductors — equipment",
+      "slug": "semis_equipment",
+      "leader": "AMAT",
+      "leader_note": "AMAT and LRCX lead equipment. ASML is the global monopoly on EUV lithography — its moves signal the entire fab buildout.",
+      "beta_to_leader": {
+        "LRCX": 0.90,
+        "KLAC": 0.85,
+        "ASML": 0.70,
+        "ENTG": 0.75
+      },
+      "tickers": ["AMAT", "LRCX", "KLAC", "ASML", "ENTG"],
+      "correlated_sectors": ["semis_compute", "semis_memory"],
+      "macro_sensitivity": "medium",
+      "risk_note": "Equipment stocks lag compute by 1-2 quarters. Positive NVDA guidance = future AMAT order tailwind, not immediate move."
+    },
+
+    {
+      "name": "AI infrastructure and data centers",
+      "slug": "ai_infra",
+      "leader": "NBIS",
+      "leader_note": "NBIS leads the high-beta AI infra cluster. CRWV and APLD are the next highest beta. All share power/energy cost as primary driver.",
+      "beta_to_leader": {
+        "APLD": 0.90,
+        "IREN": 0.85,
+        "CORZ": 0.85,
+        "CRWV": 0.80,
+        "WULF": 0.75,
+        "DOCN": 0.55,
+        "ANET": 0.50
+      },
+      "tickers": ["NBIS", "APLD", "IREN", "CORZ", "CRWV", "WULF", "DOCN", "ANET", "ACN", "GLW", "APH", "SMR", "NVTS"],
+      "correlated_sectors": ["semis_compute", "crypto_miners"],
+      "macro_sensitivity": "very_high",
+      "risk_note": "Energy prices are a direct cost driver — oil/gas down = AI infra up. This cluster moves 2-3x the broader market on risk-on days. Very high IV, wide spreads. Size carefully."
+    },
+
+    {
+      "name": "Big Tech — hyperscalers",
+      "slug": "big_tech",
+      "leader": "MSFT",
+      "leader_note": "MSFT leads because Azure/OpenAI capex signals the demand side for the entire AI ecosystem. GOOGL and META follow. AAPL is more defensive and less correlated to AI.",
+      "beta_to_leader": {
+        "GOOGL": 0.80,
+        "META":  0.80,
+        "AMZN":  0.75,
+        "AAPL":  0.50,
+        "TSLA":  0.40
+      },
+      "tickers": ["MSFT", "GOOGL", "META", "AMZN", "AAPL", "TSLA"],
+      "correlated_sectors": ["semis_compute", "ai_software"],
+      "macro_sensitivity": "medium",
+      "risk_note": "Hyperscaler capex guidance (Azure, AWS, GCP growth %) is the single most important data point for the entire AI trade. Watch quarterly earnings closely."
+    },
+
+    {
+      "name": "AI software and productivity",
+      "slug": "ai_software",
+      "leader": "PLTR",
+      "leader_note": "PLTR leads sentiment for the AI software category. CRM and SOUN follow. This sector lags the hardware cycle by 2-4 quarters.",
+      "beta_to_leader": {
+        "CRM":  0.65,
+        "SOUN": 0.70,
+        "BBAI": 0.65,
+        "ZETA": 0.55
+      },
+      "tickers": ["PLTR", "CRM", "SOUN", "BBAI", "ZETA"],
+      "correlated_sectors": ["big_tech"],
+      "macro_sensitivity": "medium",
+      "risk_note": "AI software stocks are sentiment-driven and can disconnect from fundamentals. High short interest on most names = squeeze risk on positive catalysts."
+    },
+
+    {
+      "name": "Cloud and cybersecurity",
+      "slug": "cloud_cyber",
+      "leader": "CRWD",
+      "leader_note": "CRWD leads the cyber cluster. PANW is the large-cap anchor. ZS and FTNT follow. Cyber is more defensive than pure AI plays.",
+      "beta_to_leader": {
+        "PANW": 0.75,
+        "ZS":   0.80,
+        "FTNT": 0.65
+      },
+      "tickers": ["CRWD", "PANW", "ZS", "FTNT"],
+      "correlated_sectors": ["big_tech", "ai_software"],
+      "macro_sensitivity": "low",
+      "risk_note": "Cybersecurity is more defensive — tends to hold up better in risk-off moves. Budget cycles and breach headlines are primary catalysts."
+    },
+
+    {
+      "name": "Industrial automation and robotics",
+      "slug": "robotics",
+      "leader": "PATH",
+      "leader_note": "Robotics is early-stage with no dominant leader yet. PATH and SYM are the most liquid. SERV is speculative.",
+      "beta_to_leader": {
+        "SYM":  0.70,
+        "SERV": 0.65,
+        "AMBA": 0.60,
+        "RR":   0.50
+      },
+      "tickers": ["PATH", "SYM", "SERV", "AMBA", "RR"],
+      "correlated_sectors": ["semis_compute", "ai_software"],
+      "macro_sensitivity": "high",
+      "risk_note": "Very thin liquidity on most names. Options spreads are wide. Stick to PATH and SYM if trading options — avoid SERV options entirely."
+    },
+
+    {
+      "name": "Healthcare and healthtech",
+      "slug": "healthtech",
+      "leader": "HIMS",
+      "leader_note": "HIMS leads the high-growth healthtech cluster. OSCR follows. UNH is a large-cap traditional insurer — inverse correlation to HIMS on policy news.",
+      "beta_to_leader": {
+        "OSCR": 0.75,
+        "UNH":  -0.30
+      },
+      "tickers": ["HIMS", "OSCR", "UNH"],
+      "correlated_sectors": [],
+      "macro_sensitivity": "low",
+      "risk_note": "UNH and HIMS can move inversely on healthcare policy news. Treat as separate trades. HIMS is a momentum name — high IV, moves fast."
+    },
+
+    {
+      "name": "Crypto miners and power plays",
+      "slug": "crypto_miners",
+      "leader": "MARA",
+      "leader_note": "MARA leads crypto miner sentiment. RIOT follows. BITF is more leveraged to BTC. All three correlate with BTC price AND power costs — same dual driver as AI infra.",
+      "beta_to_leader": {
+        "RIOT": 0.90,
+        "BITF": 0.85,
+        "CORZ": 0.70
+      },
+      "tickers": ["MARA", "RIOT", "BITF", "CORZ"],
+      "correlated_sectors": ["ai_infra"],
+      "macro_sensitivity": "very_high",
+      "risk_note": "BTC price is the primary driver. Secondary driver is power costs and regulatory news. Very high IV — buying options is expensive. Consider selling premium instead."
+    },
+
+    {
+      "name": "Quantum computing",
+      "slug": "quantum",
+      "leader": "RGTI",
+      "leader_note": "RGTI leads quantum sentiment. QBTS follows closely. Both are highly speculative — move on news, not fundamentals.",
+      "beta_to_leader": {
+        "QBTS": 0.85,
+        "IONQ": 0.80
+      },
+      "tickers": ["RGTI", "QBTS", "IONQ"],
+      "correlated_sectors": ["semis_compute"],
+      "macro_sensitivity": "very_high",
+      "risk_note": "Pure speculation tier. No meaningful revenue. Move on press releases and conference mentions. Do not size more than 1 contract. Treat as lottery tickets."
+    },
+
+    {
+      "name": "Broad market ETFs",
+      "slug": "etfs",
+      "leader": "SPY",
+      "leader_note": "SPY is the macro anchor. QQQ leads tech. IWM leads small caps and is a risk appetite indicator. When IWM lags QQQ, risk appetite is narrowing.",
+      "beta_to_leader": {
+        "QQQ": 1.20,
+        "IWM": 0.85,
+        "DIA": 0.80
+      },
+      "tickers": ["SPY", "QQQ", "IWM", "DIA"],
+      "correlated_sectors": ["big_tech", "semis_compute"],
+      "macro_sensitivity": "medium",
+      "risk_note": "QQQ/SPY ratio is a useful tech sentiment gauge. QQQ outperforming = risk-on tech. QQQ underperforming = rotation to value."
+    },
+
+    {
+      "name": "Energy infrastructure — new",
+      "slug": "energy_infra",
+      "leader": "SMR",
+      "leader_note": "SMR leads the nuclear/clean energy plays for AI power demand. EOSE is the battery storage angle. Both benefit from data center power demand.",
+      "beta_to_leader": {
+        "EOSE": 0.65,
+        "CEG":  0.55,
+        "VST":  0.50
+      },
+      "tickers": ["SMR", "EOSE", "CEG", "VST"],
+      "correlated_sectors": ["ai_infra"],
+      "macro_sensitivity": "medium",
+      "risk_note": "Nuclear and energy storage plays benefit from the same AI power demand thesis as data centers. Less volatile than AI infra — better for defined-risk plays."
+    }
+  ],
+
+  "cross_sector_signals": [
+    {
+      "trigger_ticker": "NVDA",
+      "trigger_direction": "bullish",
+      "implies": ["AMD", "AVGO", "AMAT", "LRCX", "NBIS", "APLD", "MSFT"],
+      "note": "NVDA up = entire AI stack bid. Strongest same-day correlation to AMD, AVGO. Data center stocks follow within 1-2 sessions."
+    },
+    {
+      "trigger_ticker": "MSFT",
+      "trigger_direction": "bullish",
+      "implies": ["GOOGL", "META", "AMZN", "PLTR", "CRM", "CRWV"],
+      "note": "MSFT Azure guidance = demand signal for the whole cloud and AI software stack."
+    },
+    {
+      "trigger_ticker": "SPY",
+      "trigger_direction": "bullish",
+      "implies": ["QQQ", "IWM", "NVDA", "AMD", "PLTR"],
+      "note": "Broad market risk-on lifts high-beta AI names disproportionately. QQQ typically leads SPY on tech-driven days."
+    },
+    {
+      "trigger_ticker": "NBIS",
+      "trigger_direction": "bullish",
+      "implies": ["APLD", "IREN", "CORZ", "CRWV", "WULF"],
+      "note": "AI data center cluster moves together on energy cost and hyperscaler demand news."
+    },
+    {
+      "trigger_ticker": "MU",
+      "trigger_direction": "bullish",
+      "implies": ["SNDK", "WDC", "STX"],
+      "note": "Memory cycle move. Currently semi-decoupled from GPU compute — MU up is a memory-specific signal, not a broad semi signal."
+    }
+  ],
+
+  "company_name_map": {
+    "nvidia": "NVDA",
+    "amd": "AMD",
+    "advanced micro devices": "AMD",
+    "microsoft": "MSFT",
+    "apple": "AAPL",
+    "google": "GOOGL",
+    "alphabet": "GOOGL",
+    "meta": "META",
+    "facebook": "META",
+    "amazon": "AMZN",
+    "tesla": "TSLA",
+    "palantir": "PLTR",
+    "salesforce": "CRM",
+    "crowdstrike": "CRWD",
+    "palo alto": "PANW",
+    "palo alto networks": "PANW",
+    "broadcom": "AVGO",
+    "micron": "MU",
+    "taiwan semiconductor": "TSM",
+    "tsmc": "TSM",
+    "applied materials": "AMAT",
+    "lam research": "LRCX",
+    "arista": "ANET",
+    "arista networks": "ANET",
+    "nebius": "NBIS",
+    "applied digital": "APLD",
+    "coreweave": "CRWV",
+    "hims": "HIMS",
+    "hims and hers": "HIMS",
+    "oscar health": "OSCR",
+    "unitedhealth": "UNH",
+    "united health": "UNH",
+    "riot": "RIOT",
+    "riot platforms": "RIOT",
+    "marathon digital": "MARA",
+    "soundhound": "SOUN",
+    "soundhound ai": "SOUN",
+    "rigetti": "RGTI",
+    "arm": "ARM",
+    "arm holdings": "ARM",
+    "asml": "ASML",
+    "corning": "GLW",
+    "amphenol": "APH",
+    "zeta global": "ZETA",
+    "zeta": "ZETA"
+  }
+}
