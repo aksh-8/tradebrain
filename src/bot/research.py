@@ -17,8 +17,10 @@ try:
 except ImportError:
     DDG_AVAILABLE = False
 
-OLLAMA_URL  = "http://localhost:11434/api/generate"
-MODEL_NAME = "qwen2.5:14b"
+from bot.config import get_settings as _get_settings
+_S = _get_settings()
+OLLAMA_URL = _S.ollama_url
+MODEL_NAME = _S.ollama_model
 
 
 # ---------------------------------------------------------------------------

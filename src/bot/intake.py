@@ -14,20 +14,16 @@ from bot.correlations import (
     detect_timeframe,
 )
 
-OLLAMA_URL = "http://localhost:11434/api/generate"
-MODEL_NAME = "qwen2.5:14b"
+from bot.config import get_settings as _get_settings
+_S = _get_settings()
+OLLAMA_URL = _S.ollama_url
+MODEL_NAME = _S.ollama_model
 
 TICKER_RE       = re.compile(r"\$([A-Z]{1,6})\b")
 PLAIN_TICKER_RE = re.compile(r"\b([A-Z]{2,6})\b")
 
-KNOWN_TICKERS = {
-    "AAPL", "MSFT", "NVDA", "AMD", "TSLA", "GOOGL", "GOOG",
-    "META", "AMZN", "PLTR", "CRWD", "PANW", "IWM", "SPY", "QQQ",
-    "INTC", "AVGO", "NFLX", "UBER", "COIN", "MSTR", "RKLB",
-    "MU", "ARM", "AMAT", "LRCX", "ANET", "NBIS", "APLD", "CRWV",
-    "MARA", "RIOT", "RGTI", "QBTS", "HIMS", "OSCR", "UNH", "NET",
-    "SNOW", "DDOG", "NOW", "CRM", "SOUN", "SMR", "MRVL", "TSM",
-}
+from bot.config import get_known_tickers as _get_known_tickers
+KNOWN_TICKERS = _get_known_tickers()
 
 
 # ---------------------------------------------------------------------------
