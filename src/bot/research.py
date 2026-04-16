@@ -9,6 +9,7 @@ import yfinance as yf
 
 from bot.chain_yf import get_spot, get_price_history, get_chain, get_expirations, ChainError
 from bot.models import ResearchResult, Direction
+from bot.correlations import get_correlation_context, format_context_for_llm
 
 try:
     from ddgs import DDGS
@@ -116,51 +117,78 @@ def _check_thesis(
     news_summary: Optional[str],
     thesis: Optional[str],
 ) -> tuple[Optional[str], Optional[str], Direction, str]:
-    """
-    Sends data + thesis to local Ollama LLM.
-    Returns (verdict, reasoning, direction, confidence).
-    Gracefully returns unknowns if Ollama is not running.
-    """
     if not _ollama_available():
         return None, "Ollama not running — thesis check skipped", "unknown", "low"
 
+    # --- sector context from correlations ---
+    try:
+        ctx = get_correlation_context(ticker)
+        sector_context = format_context_for_llm(ctx)
+    except Exception:
+        sector_context = f"{ticker}: sector data unavailable"
+
+    # --- earnings risk flag ---
+    earnings_warning = ""
+    if earnings_days_away is not None and earnings_days_away <= 14:
+        earnings_warning = (
+            f"\nWARNING: Earnings in {earnings_days_away} days. "
+            f"IV will spike into the event and crush after. "
+            f"Buying calls now means fighting IV expansion AND post-earnings IV crush."
+        )
+
     data_block = f"""
-- Current price: ${price:.2f}
-- 5-day change:  {f'{price_change_5d:+.1f}%' if price_change_5d is not None else 'unknown'}
-- 1-month change:{f'{price_change_1m:+.1f}%' if price_change_1m is not None else 'unknown'}
-- IV rank:       {f'{iv_rank:.0f}/100' if iv_rank is not None else 'unknown'}
-- Earnings in:   {f'{earnings_days_away} days' if earnings_days_away is not None else 'unknown'}
-- Recent news:   {news_summary or 'none available'}
+- Current price:  ${price:.2f}
+- 5-day change:   {f'{price_change_5d:+.1f}%' if price_change_5d is not None else 'unknown'}
+- 1-month change: {f'{price_change_1m:+.1f}%' if price_change_1m is not None else 'unknown'}
+- IV rank:        {f'{iv_rank:.0f}/100' if iv_rank is not None else 'unknown'}
+- Earnings in:    {f'{earnings_days_away} days' if earnings_days_away is not None else 'unknown'}
+- Recent news:    {news_summary or 'none available'}
+{earnings_warning}
+
+Sector context:
+{sector_context}
 """.strip()
 
     if thesis:
-        prompt = f"""You are a trading research assistant.
-A trader has a thesis about {ticker}. Check if the data supports or contradicts it.
+        prompt = f"""You are a senior options trading research analyst.
+A trader has a thesis about {ticker}. Your job is to evaluate it against real data and sector context.
 
 Thesis: "{thesis}"
 
 Data:
 {data_block}
 
+Rules:
+- If earnings are within 14 days, always flag the IV crush risk in your reasoning.
+- If IV rank is above 70, note that buying premium is expensive.
+- If the sector leader is weak, note the headwind even if this ticker looks strong.
+- Be direct. Do not hedge every sentence.
+
 Reply with ONLY valid JSON — no explanation outside the JSON:
 {{
   "verdict": "supported" | "contradicted" | "neutral",
   "direction": "bullish" | "bearish" | "unknown",
   "confidence": "high" | "medium" | "low",
-  "reasoning": "2-3 sentence explanation"
+  "reasoning": "2-3 sentence explanation covering thesis, data, sector context, and any risks"
 }}"""
     else:
-        prompt = f"""You are a trading research assistant.
-Based on the following data about {ticker}, determine if the stock looks bullish, bearish, or unclear.
+        prompt = f"""You are a senior options trading research analyst.
+Based on the following data about {ticker}, determine the directional bias and key risks.
 
 Data:
 {data_block}
+
+Rules:
+- If earnings are within 14 days, flag the IV crush risk.
+- If IV rank is above 70, note that buying premium is expensive.
+- Consider the sector context — is the leader strong or weak?
+- Be direct. Do not hedge every sentence.
 
 Reply with ONLY valid JSON — no explanation outside the JSON:
 {{
   "direction": "bullish" | "bearish" | "unknown",
   "confidence": "high" | "medium" | "low",
-  "reasoning": "2-3 sentence explanation"
+  "reasoning": "2-3 sentence explanation covering price action, sector context, and key risks"
 }}"""
 
     try:
@@ -172,14 +200,12 @@ Reply with ONLY valid JSON — no explanation outside the JSON:
                 "stream": False,
                 "options": {"temperature": 0, "top_p": 1},
             },
-            timeout=60,
+            timeout=120,
         )
         raw = r.json().get("response", "").strip()
 
-        # strip markdown fences if model wraps output
         if "```" in raw:
-            parts = raw.split("```")
-            for part in parts:
+            for part in raw.split("```"):
                 part = part.strip()
                 if part.startswith("json"):
                     part = part[4:].strip()
@@ -187,11 +213,10 @@ Reply with ONLY valid JSON — no explanation outside the JSON:
                     raw = part
                     break
 
-        parsed = json.loads(raw)
-
+        parsed     = json.loads(raw)
         direction  = parsed.get("direction", "unknown")
         confidence = parsed.get("confidence", "low")
-        verdict    = parsed.get("verdict")        # None when no thesis
+        verdict    = parsed.get("verdict")
         reasoning  = parsed.get("reasoning")
 
         if direction  not in ("bullish", "bearish", "unknown"):
