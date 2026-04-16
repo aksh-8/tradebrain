@@ -15,7 +15,7 @@ from bot.correlations import (
 )
 
 OLLAMA_URL = "http://localhost:11434/api/generate"
-MODEL_NAME = "qwen2.5:7b"
+MODEL_NAME = "qwen2.5:14b"
 
 TICKER_RE       = re.compile(r"\$([A-Z]{1,6})\b")
 PLAIN_TICKER_RE = re.compile(r"\b([A-Z]{2,6})\b")

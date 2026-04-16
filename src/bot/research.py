@@ -17,7 +17,7 @@ except ImportError:
     DDG_AVAILABLE = False
 
 OLLAMA_URL  = "http://localhost:11434/api/generate"
-MODEL_NAME  = "qwen2.5:7b"
+MODEL_NAME = "qwen2.5:14b"
 
 
 # ---------------------------------------------------------------------------
