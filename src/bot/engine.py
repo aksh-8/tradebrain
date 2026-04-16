@@ -9,7 +9,7 @@ from bot.chain_yf import get_expirations, get_chain, get_spot, ChainError
 from bot.models import Intake, ResearchResult, Pick
 from bot.research import research_ticker
 from bot.select import select_contracts
-
+from bot.logger import log_run
 
 # ---------------------------------------------------------------------------
 # Internal helpers
@@ -194,6 +194,12 @@ def run(intake: Intake) -> tuple[ResearchResult, list[Pick], str]:
             Pick(**{**p.__dict__, "iv_rank": research.iv_rank})
             for p in picks
         ]
+    
+    # log every run regardless of outcome
+    try:
+        log_run(intake, research, picks)
+    except Exception:
+        pass  # never let logging break the main pipeline
 
     return research, picks, reason
 
