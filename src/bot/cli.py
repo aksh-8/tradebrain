@@ -8,6 +8,8 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 from rich import box
+from typing import Optional
+
 
 from bot.intake import parse_intake
 from bot.engine import run
@@ -184,10 +186,43 @@ def _print_picks(picks: list[Pick], budget: float) -> None:
 
 
 def _print_budget_warning(ticker: str, budget: float, reason: str) -> None:
+    from bot.chain_yf import get_expirations, get_chain, ChainError
+    from bot.select import _dte, _effective_mid
+
+    cheapest: Optional[float] = None
+
+    try:
+        exps = get_expirations(ticker)
+        for exp in exps[:4]:
+            chain = get_chain(ticker, exp)
+            for c in chain:
+                d = _dte(c.expiration)
+                if d < 14:
+                    continue
+                m, _ = _effective_mid(c.bid, c.ask, c.last, False)
+                if m is None:
+                    continue
+                cost = m * 100
+                if cheapest is None or cost < cheapest:
+                    cheapest = cost
+            if cheapest is not None:
+                break
+    except Exception:
+        cheapest = None
+
+    budget_line = f"[yellow]No contracts found within ${budget:.0f} budget.[/yellow]"
+
+    if cheapest is not None:
+        suggest = round(cheapest * 1.2)  # 20% buffer above cheapest
+        budget_line += (
+            f"\n[dim]Cheapest available contract: ~${cheapest:.0f}. "
+            f"Try [/dim][bold]--budget {suggest}[/bold][dim] to start seeing picks.[/dim]"
+        )
+
     console.print(Panel(
-        f"[yellow]No contracts found within ${budget:.0f} budget.[/yellow]\n"
+        f"{budget_line}\n"
         f"[dim]{reason}[/dim]\n\n"
-        f"[dim]Try: increase --budget, or pick a lower-priced ticker than {ticker}.[/dim]",
+        f"[dim]Try a lower-priced ticker if {ticker} options are out of range.[/dim]",
         title="[yellow]No picks[/yellow]",
         border_style="yellow",
         padding=(1, 2),
