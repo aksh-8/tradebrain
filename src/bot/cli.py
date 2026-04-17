@@ -225,16 +225,26 @@ def main() -> None:
                   f"budget=${intake.budget:.0f}\n")
 
     # run pipeline
-    with console.status("[cyan]Researching...[/cyan]", spinner="dots"):
-        research, picks, reason = run(intake)
+    if len(intake.tickers) > 1:
+        with console.status(f"[cyan]Researching {len(intake.tickers)} tickers...[/cyan]", spinner="dots"):
+            from bot.engine import run_multi
+            results = run_multi(intake)
 
-    # display
-    _print_research(research)
-
-    if picks:
-        _print_picks(picks, args.budget)
+        for research, picks, reason in results:
+            _print_research(research)
+            if picks:
+                _print_picks(picks, args.budget)
+            else:
+                _print_budget_warning(research.ticker, args.budget, reason)
     else:
-        _print_budget_warning(intake.tickers[0], args.budget, reason)
+        with console.status("[cyan]Researching...[/cyan]", spinner="dots"):
+            research, picks, reason = run(intake)
+
+        _print_research(research)
+        if picks:
+            _print_picks(picks, args.budget)
+        else:
+            _print_budget_warning(intake.tickers[0], args.budget, reason)
 
 
 if __name__ == "__main__":

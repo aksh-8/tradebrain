@@ -222,3 +222,36 @@ def _empty_research(ticker: str) -> ResearchResult:
         confidence           = "low",
         skip_reason          = "no ticker provided",
     )
+
+def run_multi(
+    intake: Intake,
+) -> list[tuple[ResearchResult, list[Pick], str]]:
+    """
+    Runs the full pipeline for every ticker in intake.
+    Returns results sorted by confidence then price action.
+    Each element is (research, picks, failure_reason).
+    """
+    if not intake.tickers:
+        return []
+
+    results = []
+    for ticker in intake.tickers:
+        single_intake = Intake(
+            raw_text  = intake.raw_text,
+            tickers   = (ticker,),
+            direction = intake.direction,
+            thesis    = intake.thesis,
+            timeframe = intake.timeframe,
+            budget    = intake.budget,
+        )
+        research, picks, reason = run(single_intake)
+        results.append((research, picks, reason))
+
+    # sort: confidence high > medium > low, then by picks count
+    conf_order = {"high": 0, "medium": 1, "low": 2}
+    results.sort(key=lambda x: (
+        conf_order.get(x[0].confidence, 9),
+        -len(x[1]),
+    ))
+
+    return results
