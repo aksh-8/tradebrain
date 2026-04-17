@@ -219,7 +219,8 @@ def main() -> None:
         sys.exit(1)
 
     # show what we parsed
-    console.print(f"\n[dim]Parsed:[/dim] {intake.tickers[0]}  "
+    tickers_str = ", ".join(intake.tickers) if intake.tickers else "none"
+    console.print(f"\n[dim]Parsed:[/dim] {tickers_str}  "
                   f"direction={intake.direction}  "
                   f"timeframe={intake.timeframe}  "
                   f"budget=${intake.budget:.0f}\n")
