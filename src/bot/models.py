@@ -29,23 +29,40 @@ class ResearchResult:
     Feeds directly into contract selection.
     """
     ticker: str
-    price: float                         # current price (live from yfinance)
-    price_change_5d: Optional[float]    # % change over last 5 trading days
-    price_change_1m: Optional[float]    # % change over last month
+    price: float
+    price_change_5d: Optional[float]
+    price_change_1m: Optional[float]
     week_52_high: Optional[float]
     week_52_low: Optional[float]
 
-    iv_rank: Optional[float]            # 0-100, where IV sits vs past year
-    avg_volume: Optional[int]           # 30d avg volume
-    earnings_days_away: Optional[int]   # None if unknown
+    # technicals
+    sma50: Optional[float]
+    sma200: Optional[float]
+    above_sma50: Optional[bool]
+    above_sma200: Optional[bool]
 
-    news_summary: Optional[str]         # 2-3 sentence summary of recent news
-    thesis_verdict: Optional[str]       # "supported" | "contradicted" | "neutral"
-    thesis_reasoning: Optional[str]     # LLM explanation of verdict
+    # options
+    iv_rank: Optional[float]
+    unusual_options_activity: Optional[str]  # human-readable summary if detected
 
-    recommended_direction: Direction    # what the data suggests
+    # analyst
+    analyst_target: Optional[float]         # mean price target
+    analyst_upside: Optional[float]         # % upside from current price
+    analyst_rating: Optional[str]           # "Buy" | "Hold" | "Sell" | None
+
+    # fundamentals
+    avg_volume: Optional[int]
+    earnings_days_away: Optional[int]
+
+    # research
+    news_summary: Optional[str]
+
+    # LLM output
+    thesis_verdict: Optional[str]
+    thesis_reasoning: Optional[str]
+    recommended_direction: Direction
     confidence: Literal["high", "medium", "low"]
-    skip_reason: Optional[str]          # if confidence is low, why
+    skip_reason: Optional[str]
 
 
 @dataclass(frozen=True)

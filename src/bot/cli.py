@@ -24,8 +24,7 @@ def _print_research(r: ResearchResult) -> None:
     lines = []
 
     # price block
-    price_str = f"${r.price:.2f}" if r.price else "unavailable"
-    lines.append(f"[bold]Price[/bold]        {price_str}")
+    lines.append(f"[bold]Price[/bold]        ${r.price:.2f}")
 
     if r.price_change_5d is not None:
         arrow = "↑" if r.price_change_5d >= 0 else "↓"
@@ -40,22 +39,54 @@ def _print_research(r: ResearchResult) -> None:
     if r.week_52_high and r.week_52_low:
         lines.append(f"[bold]52w range[/bold]    ${r.week_52_low:.2f} – ${r.week_52_high:.2f}")
 
+    # technicals
+    if r.sma50 is not None:
+        color = "green" if r.above_sma50 else "red"
+        label = "ABOVE" if r.above_sma50 else "BELOW"
+        lines.append(f"[bold]50 SMA[/bold]       [{color}]{label} ${r.sma50:.2f}[/{color}]")
+
+    if r.sma200 is not None:
+        color = "green" if r.above_sma200 else "red"
+        label = "ABOVE" if r.above_sma200 else "BELOW"
+        lines.append(f"[bold]200 SMA[/bold]      [{color}]{label} ${r.sma200:.2f}[/{color}]")
+
+    # IV
     if r.iv_rank is not None:
         iv_color = "red" if r.iv_rank > 70 else "yellow" if r.iv_rank > 40 else "green"
         iv_note  = "expensive" if r.iv_rank > 70 else "moderate" if r.iv_rank > 40 else "cheap"
         lines.append(f"[bold]IV rank[/bold]      [{iv_color}]{r.iv_rank:.0f}/100 ({iv_note})[/{iv_color}]")
 
+    # earnings
     if r.earnings_days_away is not None:
-        e_color = "yellow" if r.earnings_days_away < 14 else "dim"
+        e_color = "red" if r.earnings_days_away <= 14 else "yellow" if r.earnings_days_away <= 30 else "dim"
         lines.append(f"[bold]Earnings[/bold]     [{e_color}]in {r.earnings_days_away} days[/{e_color}]")
 
+    # analyst
+    if r.analyst_target:
+        r_color = (
+            "green" if r.analyst_rating and "buy" in r.analyst_rating.lower()
+            else "red" if r.analyst_rating and "sell" in r.analyst_rating.lower()
+            else "dim"
+        )
+        upside_str = f" ({r.analyst_upside:+.1f}%)" if r.analyst_upside is not None else ""
+        lines.append(
+            f"[bold]Analyst[/bold]      [{r_color}]{r.analyst_rating or 'N/A'}[/{r_color}]"
+            f"  target ${r.analyst_target:.2f}{upside_str}"
+        )
+
+    # volume
     if r.avg_volume:
         lines.append(f"[bold]Avg volume[/bold]   {r.avg_volume:,}")
+
+    # unusual options
+    if r.unusual_options_activity:
+        lines.append("")
+        lines.append(f"[bold]Options flow[/bold] [yellow]{r.unusual_options_activity}[/yellow]")
 
     # news
     if r.news_summary:
         lines.append("")
-        lines.append(f"[bold]News[/bold]")
+        lines.append("[bold]News[/bold]")
         for headline in r.news_summary.split(" | "):
             lines.append(f"  [dim]· {headline.strip()}[/dim]")
 
@@ -70,11 +101,11 @@ def _print_research(r: ResearchResult) -> None:
             lines.append(f"  [dim]{r.thesis_reasoning}[/dim]")
     elif r.thesis_reasoning:
         lines.append("")
-        lines.append(f"[dim]{r.thesis_reasoning}[/dim]")
+        lines.append(f"  [dim]{r.thesis_reasoning}[/dim]")
 
-    # direction
+    # signal
     lines.append("")
-    dir_color = {"bullish": "green", "bearish": "red"}.get(r.recommended_direction, "dim")
+    dir_color  = {"bullish": "green", "bearish": "red"}.get(r.recommended_direction, "dim")
     conf_color = {"high": "green", "medium": "yellow", "low": "red"}.get(r.confidence, "dim")
     lines.append(
         f"[bold]Signal[/bold]       [{dir_color}]{r.recommended_direction.upper()}[/{dir_color}]"
