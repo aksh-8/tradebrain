@@ -16,6 +16,7 @@ class Intake:
     """
     raw_text: str                        # exactly what the user typed
     tickers: Tuple[str, ...]             # extracted tickers, primary first
+    context_tickers: Tuple[str, ...]   # mentioned in thesis but not the trade target
     direction: Direction                 # bullish | bearish | unknown
     thesis: Optional[str]               # cleaned thesis text, if any
     timeframe: Timeframe                # hint at how long the trade should run

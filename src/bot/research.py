@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import date, datetime
+from datetime import date, datetime, time
 from typing import Optional
 
 import requests
@@ -217,6 +217,7 @@ def _check_thesis(
     unusual_activity: Optional[str],
     news_summary: Optional[str],
     thesis: Optional[str],
+    context_tickers: Optional[list[str]] = None,
 ) -> tuple[Optional[str], Optional[str], Direction, str]:
 
     if not _ollama_available():
@@ -264,6 +265,10 @@ def _check_thesis(
             f"Mean target ${analyst_target:.2f} "
             f"({f'+{analyst_upside:.1f}%' if analyst_upside and analyst_upside > 0 else f'{analyst_upside:.1f}%' if analyst_upside else 'N/A'} upside)"
         )
+    
+    context_note = ""
+    if context_tickers:
+        context_note = f"\nContext tickers mentioned in thesis (supporting context only, not the trade): {', '.join(context_tickers)}"
 
     data_block = f"""
 - Price:          ${price:.2f}
@@ -275,6 +280,7 @@ def _check_thesis(
 - Analyst view:   {analyst_note or 'unavailable'}
 - Options flow:   {unusual_activity or 'nothing unusual'}
 - News:           {news_summary or 'none'}
+{context_note}
 {earnings_warning}
 
 Sector context:
@@ -335,43 +341,55 @@ Reply with ONLY valid JSON:
   "reasoning": "3-4 sentence analysis covering price action, key risks, IV environment, and sector context"
 }}"""
 
-    try:
-        r = requests.post(
-            OLLAMA_URL,
-            json={
-                "model":   MODEL_NAME,
-                "prompt":  prompt,
-                "stream":  False,
-                "options": {"temperature": 0, "top_p": 1},
-            },
-            timeout=_S.ollama_timeout,
-        )
-        raw = r.json().get("response", "").strip()
+    import time
+    for attempt in range(2):
+        try:
+            r = requests.post(
+                OLLAMA_URL,
+                json={
+                    "model":   MODEL_NAME,
+                    "prompt":  prompt,
+                    "stream":  False,
+                    "options": {"temperature": 0, "top_p": 1},
+                },
+                timeout=_S.ollama_timeout,
+            )
+            raw = r.json().get("response", "").strip()
 
-        if "```" in raw:
-            for part in raw.split("```"):
-                part = part.strip()
-                if part.startswith("json"):
-                    part = part[4:].strip()
-                if part.startswith("{"):
-                    raw = part
-                    break
+            # retry once on cold start empty response
+            if not raw and attempt == 0:
+                time.sleep(2)
+                continue
 
-        parsed     = json.loads(raw)
-        direction  = parsed.get("direction",  "unknown")
-        confidence = parsed.get("confidence", "low")
-        verdict    = parsed.get("verdict")
-        reasoning  = parsed.get("reasoning")
+            if "```" in raw:
+                for part in raw.split("```"):
+                    part = part.strip()
+                    if part.startswith("json"):
+                        part = part[4:].strip()
+                    if part.startswith("{"):
+                        raw = part
+                        break
 
-        if direction  not in ("bullish", "bearish", "unknown"):
-            direction = "unknown"
-        if confidence not in ("high", "medium", "low"):
-            confidence = "low"
+            parsed     = json.loads(raw)
+            direction  = parsed.get("direction",  "unknown")
+            confidence = parsed.get("confidence", "low")
+            verdict    = parsed.get("verdict")
+            reasoning  = parsed.get("reasoning")
 
-        return verdict, reasoning, direction, confidence  # type: ignore[return-value]
+            if direction not in ("bullish", "bearish", "unknown"):
+                direction = "unknown"
+            if confidence not in ("high", "medium", "low"):
+                confidence = "low"
 
-    except Exception as e:
-        return None, f"LLM parse error: {e}", "unknown", "low"
+            return verdict, reasoning, direction, confidence  # type: ignore[return-value]
+
+        except Exception as e:
+            if attempt == 0:
+                time.sleep(2)
+                continue
+            return None, f"LLM parse error: {e}", "unknown", "low"
+
+    return None, "LLM returned empty response after retry", "unknown", "low"
 
 
 # ---------------------------------------------------------------------------
@@ -382,6 +400,7 @@ def research_ticker(
     ticker: str,
     thesis: Optional[str],
     budget: float,
+    context_tickers: Optional[list[str]] = None,
 ) -> ResearchResult:
     ticker = ticker.upper().strip()
 
@@ -441,6 +460,7 @@ def research_ticker(
         unusual_activity   = unusual_activity,
         news_summary       = news_summary,
         thesis             = thesis,
+        context_tickers    = context_tickers or [],
     )
 
     skip_reason: Optional[str] = None

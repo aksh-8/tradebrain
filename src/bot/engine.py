@@ -150,9 +150,10 @@ def run(intake: Intake) -> tuple[ResearchResult, list[Pick], str, Optional[str]]
         return _empty_research("unknown"), [], "no ticker provided", None
 
     research = research_ticker(
-        ticker = primary_ticker,
-        thesis = intake.thesis,
-        budget = intake.budget,
+        ticker          = primary_ticker,
+        thesis          = intake.thesis,
+        budget          = intake.budget,
+        context_tickers = list(intake.context_tickers),
     )
 
     # Step 2 — resolve direction
