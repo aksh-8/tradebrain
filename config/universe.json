@@ -1,13 +1,23 @@
 {
   "tickers": [
-    "AAPL", "MSFT", "NVDA", "AMD", "TSLA", "GOOGL",
-    "META", "AMZN", "PLTR", "CRWD", "PANW", "AMD",
-    "IWM", "SPY", "QQQ"
+    "AAPL", "MSFT", "NVDA", "AMD", "TSLA", "GOOGL", "GOOG",
+    "META", "AMZN", "PLTR", "CRWD", "PANW", "IWM", "SPY", "QQQ",
+    "INTC", "AVGO", "NFLX", "UBER", "COIN", "MSTR", "RKLB",
+    "MU", "ARM", "AMAT", "LRCX", "ANET", "NBIS", "APLD", "CRWV",
+    "MARA", "RIOT", "RGTI", "QBTS", "HIMS", "OSCR", "UNH", "NET",
+    "SNOW", "DDOG", "NOW", "CRM", "SOUN", "SMR", "MRVL", "TSM",
+    "INOD", "S", "IONQ", "BITF", "CORZ", "EOSE", "CEG", "VST",
+    "SERV", "PATH", "SYM", "AMBA", "RR", "ZETA", "BBAI"
   ],
   "proxies": {
     "SPY": "IWM",
     "QQQ": "IWM",
     "NVDA": "AMD",
-    "AMD": "NVDA"
+    "AMD": "NVDA",
+    "RGTI": "QBTS",
+    "QBTS": "IONQ",
+    "IONQ": "QBTS",
+    "INOD": "PLTR",
+    "S": "CRWD"
   }
 }

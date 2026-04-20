@@ -177,16 +177,16 @@
     {
       "name": "Quantum computing",
       "slug": "quantum",
-      "leader": "RGTI",
-      "leader_note": "RGTI leads quantum sentiment. QBTS follows closely. Both are highly speculative — move on news, not fundamentals.",
+      "leader": "IONQ",
+      "leader_note": "IONQ is now the most liquid and institutionally backed quantum name. RGTI and QBTS follow. All move on quantum news and NVIDIA comments about AI+quantum convergence.",
       "beta_to_leader": {
         "QBTS": 0.85,
-        "IONQ": 0.80
+        "RGTI": 0.80
       },
-      "tickers": ["RGTI", "QBTS", "IONQ"],
+      "tickers": ["IONQ", "RGTI", "QBTS"],
       "correlated_sectors": ["semis_compute"],
       "macro_sensitivity": "very_high",
-      "risk_note": "Pure speculation tier. No meaningful revenue. Move on press releases and conference mentions. Do not size more than 1 contract. Treat as lottery tickets."
+      "risk_note": "Pure speculation tier. Revenue is real but small. Move on press releases, conference mentions, and big-tech quantum comments. IONQ is the most liquid — use it as the proxy for the others. Never more than 1 contract. Treat as lottery tickets with a real thesis."
     },
 
     {
@@ -219,6 +219,38 @@
       "correlated_sectors": ["ai_infra"],
       "macro_sensitivity": "medium",
       "risk_note": "Nuclear and energy storage plays benefit from the same AI power demand thesis as data centers. Less volatile than AI infra — better for defined-risk plays."
+    },
+
+    {
+      "name": "Cybersecurity — next gen",
+      "slug": "cyber_nextgen",
+      "leader": "CRWD",
+      "leader_note": "CRWD leads next-gen cyber. S (SentinelOne) is the closest competitor with a differentiated AI-native platform.",
+      "beta_to_leader": {
+        "S": 0.85,
+        "PANW": 0.75,
+        "ZS": 0.80,
+        "FTNT": 0.65
+      },
+      "tickers": ["CRWD", "S", "PANW", "ZS", "FTNT"],
+      "correlated_sectors": ["big_tech", "ai_software"],
+      "macro_sensitivity": "low",
+      "risk_note": "Cybersecurity is defensive but S specifically has had fundamentals-vs-price disconnect. Good long-term story, weak near-term momentum. Buy thesis needs a catalyst — earnings beat, contract win, or sector rotation into cyber."
+    },
+    {
+      "name": "Data infrastructure and AI data",
+      "slug": "ai_data",
+      "leader": "PLTR",
+      "leader_note": "PLTR leads the AI data and analytics category. INOD is a niche pure-play in data annotation for AI training — different model but same demand driver.",
+      "beta_to_leader": {
+        "INOD": 0.60,
+        "BBAI": 0.65,
+        "ZETA": 0.55
+      },
+      "tickers": ["PLTR", "INOD", "BBAI", "ZETA"],
+      "correlated_sectors": ["ai_software", "big_tech"],
+      "macro_sensitivity": "medium",
+      "risk_note": "INOD is micro-cap with thin options liquidity. Options spreads will be wide. Treat any INOD options play as speculative — size at 1 contract maximum and expect relaxed filter picks. PLTR is the liquid proxy."
     }
   ],
 
@@ -300,6 +332,17 @@
     "corning": "GLW",
     "amphenol": "APH",
     "zeta global": "ZETA",
-    "zeta": "ZETA"
+    "zeta": "ZETA",
+    "sentinelone": "S",
+    "inod": "INOD",
+    "ionq": "IONQ",
+    "soundhound": "SOUN",
+    "soundhound ai": "SOUN",
+    "nuscale": "SMR",
+    "nuscale power": "SMR",
+    "d-wave": "QBTS",
+    "dwave": "QBTS",
+    "quantum computing inc": "QUBT",
+    "rigetti": "RGTI"
   }
 }
