@@ -136,7 +136,7 @@ def get_picks(
 # Public entry point
 # ---------------------------------------------------------------------------
 
-def run(intake: Intake) -> tuple[ResearchResult, list[Pick], str]:
+def run(intake: Intake) -> tuple[ResearchResult, list[Pick], str, Optional[str]]:
     """
     Full pipeline:
       1. Research every ticker in intake
@@ -147,7 +147,7 @@ def run(intake: Intake) -> tuple[ResearchResult, list[Pick], str]:
     # Step 1 — research primary ticker
     primary_ticker = intake.tickers[0] if intake.tickers else None
     if not primary_ticker:
-        return _empty_research("unknown"), [], "no ticker provided"
+        return _empty_research("unknown"), [], "no ticker provided", None
 
     research = research_ticker(
         ticker = primary_ticker,
@@ -157,16 +157,46 @@ def run(intake: Intake) -> tuple[ResearchResult, list[Pick], str]:
 
     # Step 2 — resolve direction
     # intake direction wins if explicit; else use what research found
-    if intake.direction != "unknown":
-        direction = intake.direction
+    # resolve direction with LLM override logic
+    user_direction = intake.direction
+    llm_direction  = research.recommended_direction
+    llm_verdict    = research.thesis_verdict
+    llm_confidence = research.confidence
+
+    direction_note: Optional[str] = None
+
+    if user_direction != "unknown":
+        if llm_verdict == "contradicted" and llm_confidence == "high":
+            direction = llm_direction if llm_direction != "unknown" else user_direction
+            direction_note = (
+                f"[yellow]⚠ THESIS OVERRIDE[/yellow] — You said "
+                f"[bold]{user_direction}[/bold] but data says "
+                f"[bold]{direction}[/bold] with high confidence. "
+                f"Showing {direction} contracts. Review reasoning above."
+            )
+        elif llm_verdict == "contradicted" and llm_confidence == "medium":
+            direction = user_direction
+            direction_note = (
+                f"[yellow]⚠ THESIS WARNING[/yellow] — Data partially contradicts "
+                f"your {user_direction} thesis. Proceeding with {user_direction} "
+                f"contracts but review the reasoning carefully before trading."
+            )
+        elif llm_verdict == "neutral" and llm_confidence == "low":
+            direction = user_direction
+            direction_note = (
+                f"[dim]⚠ No strong signal detected. Proceeding with your "
+                f"{user_direction} direction — low confidence trade.[/dim]"
+            )
+        else:
+            direction = user_direction
     else:
-        direction = research.recommended_direction
+        direction = llm_direction
 
     side = _direction_to_side(direction)
     if side is None:
         return research, [], (
             f"direction is '{direction}' — need bullish or bearish to select contracts"
-        )
+        ), direction_note
 
     # Step 3 — confidence gate
     # Low confidence = warn but still proceed (user decides, not the bot)
@@ -201,7 +231,8 @@ def run(intake: Intake) -> tuple[ResearchResult, list[Pick], str]:
     except Exception:
         pass  # never let logging break the main pipeline
 
-    return research, picks, reason
+    return research, picks, reason, direction_note
+
 
 
 def _empty_research(ticker: str) -> ResearchResult:
@@ -225,7 +256,7 @@ def _empty_research(ticker: str) -> ResearchResult:
 
 def run_multi(
     intake: Intake,
-) -> list[tuple[ResearchResult, list[Pick], str]]:
+) -> list[tuple[ResearchResult, list[Pick], str, Optional[str]]]:
     """
     Runs the full pipeline for every ticker in intake.
     Returns results sorted by confidence then price action.
@@ -244,8 +275,8 @@ def run_multi(
             timeframe = intake.timeframe,
             budget    = intake.budget,
         )
-        research, picks, reason = run(single_intake)
-        results.append((research, picks, reason))
+        research, picks, reason, direction_note = run(single_intake)
+        results.append((research, picks, reason, direction_note))
 
     # sort: confidence high > medium > low, then by picks count
     conf_order = {"high": 0, "medium": 1, "low": 2}

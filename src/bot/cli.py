@@ -297,17 +297,20 @@ def main() -> None:
             from bot.engine import run_multi
             results = run_multi(intake)
 
-        for research, picks, reason in results:
+        for research, picks, reason, direction_note in results:
             _print_research(research)
+            if direction_note:
+                console.print(f"\n  {direction_note}\n")
             if picks:
                 _print_picks(picks, args.budget)
             else:
                 _print_budget_warning(research.ticker, args.budget, reason)
     else:
         with console.status("[cyan]Researching...[/cyan]", spinner="dots"):
-            research, picks, reason = run(intake)
-
+            research, picks, reason, direction_note = run(intake)
         _print_research(research)
+        if direction_note:
+            console.print(f"\n  {direction_note}\n")
         if picks:
             _print_picks(picks, args.budget)
         else:

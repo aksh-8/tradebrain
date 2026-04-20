@@ -135,12 +135,29 @@ Rules:
         if direction == "unknown":
             direction = detect_direction(raw)
 
+        # validate tickers — if LLM returned something not in known set,
+        # try correlations lookup as correction
+        from bot.correlations import find_ticker_in_text
+        from bot.config import get_known_tickers
+        known = get_known_tickers()
+        validated = []
+        for t in tickers:
+            if t in known:
+                validated.append(t)
+            else:
+                # LLM hallucinated a ticker — try company name lookup
+                resolved = find_ticker_in_text(raw)
+                if resolved and resolved not in validated:
+                    validated.append(resolved)
+        if not validated:
+            validated = tickers  # fallback to LLM output if nothing resolved
+
         return Intake(
             raw_text  = raw,
-            tickers   = tuple(tickers),
-            direction = direction,   # type: ignore[arg-type]
+            tickers   = tuple(validated),
+            direction = direction,
             thesis    = thesis,
-            timeframe = timeframe,   # type: ignore[arg-type]
+            timeframe = timeframe,
             budget    = budget,
         )
 
