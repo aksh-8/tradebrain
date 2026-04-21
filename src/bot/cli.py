@@ -185,16 +185,14 @@ def _print_picks(picks: list[Pick], budget: float) -> None:
     )
 
 
-def _print_budget_warning(ticker: str, budget: float, reason: str) -> None:
+def _get_cheapest_contract(ticker: str) -> Optional[float]:
     from bot.chain_yf import get_expirations, get_chain, ChainError
     from bot.select import _dte, _effective_mid
-
-    cheapest: Optional[float] = None
-
     try:
         exps = get_expirations(ticker)
         for exp in exps[:4]:
             chain = get_chain(ticker, exp)
+            cheapest = None
             for c in chain:
                 d = _dte(c.expiration)
                 if d < 14:
@@ -206,19 +204,21 @@ def _print_budget_warning(ticker: str, budget: float, reason: str) -> None:
                 if cheapest is None or cost < cheapest:
                     cheapest = cost
             if cheapest is not None:
-                break
+                return cheapest
     except Exception:
-        cheapest = None
+        pass
+    return None
 
+
+def _print_budget_warning(ticker: str, budget: float, reason: str) -> None:
+    cheapest = _get_cheapest_contract(ticker)
     budget_line = f"[yellow]No contracts found within ${budget:.0f} budget.[/yellow]"
-
     if cheapest is not None:
-        suggest = round(cheapest * 1.2)  # 20% buffer above cheapest
+        suggest = round(cheapest * 1.2)
         budget_line += (
             f"\n[dim]Cheapest available contract: ~${cheapest:.0f}. "
             f"Try [/dim][bold]--budget {suggest}[/bold][dim] to start seeing picks.[/dim]"
         )
-
     console.print(Panel(
         f"{budget_line}\n"
         f"[dim]{reason}[/dim]\n\n"
@@ -227,6 +227,73 @@ def _print_budget_warning(ticker: str, budget: float, reason: str) -> None:
         border_style="yellow",
         padding=(1, 2),
     ))
+
+def _evaluate_pick_quality(picks: list[Pick], research: ResearchResult, budget: float) -> None:
+    """
+    After finding picks at a retried budget, evaluate if they're actually worth taking.
+    Surfaces warnings for: high IV, earnings risk, wide spread, low OI.
+    """
+    warnings = []
+    best = picks[0]
+
+    if research.iv_rank is not None and research.iv_rank > 65:
+        warnings.append(
+            f"[red]HV rank {research.iv_rank:.0f}/100 — premium is expensive. "
+            f"You're paying elevated prices for these contracts.[/red]"
+        )
+
+    if research.earnings_days_away is not None and research.earnings_days_away <= 21:
+        warnings.append(
+            f"[red]Earnings in {research.earnings_days_away} days — "
+            f"IV crush risk is real. Contract may lose value even if stock moves in your direction.[/red]"
+        )
+
+    if best.spread_pct < 999 and best.spread_pct > 0.15:
+        warnings.append(
+            f"[yellow]Spread {best.spread_pct*100:.1f}% on best pick — wide. "
+            f"You'll lose ~{best.spread_pct*50:.0f}% immediately on entry.[/yellow]"
+        )
+
+    if (best.oi or 0) < 100:
+        warnings.append(
+            f"[yellow]OI={best.oi or 0} on best pick — thin liquidity. "
+            f"May be hard to exit at a fair price.[/yellow]"
+        )
+
+    if budget > 500 and best.cost > budget * 0.7:
+        warnings.append(
+            f"[yellow]Contract costs ${best.cost:.0f} — "
+            f"{best.cost/budget*100:.0f}% of your budget on one trade. "
+            f"Consider sizing down.[/yellow]"
+        )
+
+    if not warnings:
+        console.print(
+            "\n  [green]✓ Contracts look tradeable — quality checks passed.[/green]\n"
+        )
+        return
+
+    console.print("\n  [bold]Quality check:[/bold]")
+    for w in warnings:
+        console.print(f"  {w}")
+
+    # overall verdict
+    red_count = sum(1 for w in warnings if w.startswith("[red]"))
+    if red_count >= 2:
+        console.print(
+            "\n  [red bold]VERDICT: Skip this trade. "
+            "Too many risk flags even at the higher budget.[/red bold]\n"
+        )
+    elif red_count == 1:
+        console.print(
+            "\n  [yellow]VERDICT: Proceed with caution. "
+            "One significant risk flag — size at minimum (1 contract).[/yellow]\n"
+        )
+    else:
+        console.print(
+            "\n  [green]VERDICT: Acceptable. Minor flags only — "
+            "1 contract maximum.[/green]\n"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -308,13 +375,67 @@ def main() -> None:
     else:
         with console.status("[cyan]Researching...[/cyan]", spinner="dots"):
             research, picks, reason, direction_note = run(intake)
+
         _print_research(research)
         if direction_note:
             console.print(f"\n  {direction_note}\n")
+
         if picks:
             _print_picks(picks, args.budget)
         else:
             _print_budget_warning(intake.tickers[0], args.budget, reason)
+
+            # interactive retry loop — multiple attempts, quality gate on success
+            current_budget = args.budget
+            while True:
+                cheapest = _get_cheapest_contract(intake.tickers[0])
+                if cheapest is None:
+                    break
+
+                suggested = round(cheapest * 1.2)
+                if suggested <= current_budget:
+                    break  # no point suggesting same or lower budget
+
+                try:
+                    console.print(
+                        f"\n[dim]Retry with [/dim][bold]--budget {suggested}[/bold]"
+                        f"[dim]? (y/n/q to quit):[/dim] ",
+                        end=""
+                    )
+                    answer = input().strip().lower()
+                except (KeyboardInterrupt, EOFError):
+                    break
+
+                if answer in ("q", "quit", "n", "no"):
+                    break
+
+                if answer not in ("y", "yes"):
+                    continue
+
+                from bot.models import Intake as _Intake
+                new_intake = _Intake(
+                    raw_text        = intake.raw_text,
+                    tickers         = intake.tickers,
+                    context_tickers = intake.context_tickers,
+                    direction       = intake.direction,
+                    thesis          = intake.thesis,
+                    timeframe       = intake.timeframe,
+                    budget          = float(suggested),
+                )
+                console.print(f"\n[dim]Retrying with budget ${suggested}...[/dim]\n")
+                with console.status("[cyan]Researching...[/cyan]", spinner="dots"):
+                    research2, picks2, reason2, direction_note2 = run(new_intake)
+
+                if direction_note2:
+                    console.print(f"\n  {direction_note2}\n")
+
+                if picks2:
+                    _print_picks(picks2, float(suggested))
+                    _evaluate_pick_quality(picks2, research2, float(suggested))
+                    break
+                else:
+                    _print_budget_warning(intake.tickers[0], float(suggested), reason2)
+                    current_budget = float(suggested)
 
 
 if __name__ == "__main__":
