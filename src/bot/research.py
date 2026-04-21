@@ -173,19 +173,56 @@ def _get_earnings_days_away(ticker: str) -> Optional[int]:
 # IV rank proxy
 # ---------------------------------------------------------------------------
 
-def _get_iv_rank(ticker: str) -> Optional[float]:
-    try:
-        exps = get_expirations(ticker)
-        if not exps:
-            return None
-        chain = get_chain(ticker, exps[0])
-        ivs = [c.iv for c in chain if c.iv is not None and c.iv > 0]
-        if not ivs:
-            return None
-        avg_iv = sum(ivs) / len(ivs)
-        return round(min(100.0, max(0.0, avg_iv * 100)), 1)
-    except Exception:
+def _get_hv_rank(history: list[dict]) -> Optional[float]:
+    """
+    Computes Historical Volatility rank (0-100) from price history.
+    
+    HV rank = (current_30d_HV - min_HV_period) / (max_HV_period - min_HV_period) * 100
+    
+    This is a legitimate proxy for IV rank used when historical IV data
+    is unavailable. Stable across market hours and off-hours because it
+    uses daily closes, not real-time options prices.
+    
+    Replaces the broken _get_iv_rank() proxy which averaged raw chain IV
+    and returned 100 during market hours, 23 off-hours.
+    """
+    import math
+
+    if len(history) < 31:
         return None
+
+    closes = [h["close"] for h in history if h["close"] > 0]
+    if len(closes) < 31:
+        return None
+
+    # compute daily log returns
+    log_returns = [
+        math.log(closes[i] / closes[i - 1])
+        for i in range(1, len(closes))
+    ]
+
+    # compute rolling 30-day HV (annualized)
+    window = 30
+    hvs = []
+    for i in range(window, len(log_returns) + 1):
+        window_returns = log_returns[i - window:i]
+        mean = sum(window_returns) / window
+        variance = sum((r - mean) ** 2 for r in window_returns) / (window - 1)
+        hv = math.sqrt(variance * 252)  # annualized
+        hvs.append(hv)
+
+    if len(hvs) < 2:
+        return None
+
+    current_hv = hvs[-1]
+    min_hv     = min(hvs)
+    max_hv     = max(hvs)
+
+    if max_hv == min_hv:
+        return 50.0  # flat volatility — return neutral rank
+
+    rank = (current_hv - min_hv) / (max_hv - min_hv) * 100
+    return round(min(100.0, max(0.0, rank)), 1)
 
 
 # ---------------------------------------------------------------------------
@@ -432,7 +469,7 @@ def research_ticker(
     above_sma200 = (price > sma200) if sma200 and price > 0 else None
 
     # options data
-    iv_rank            = _get_iv_rank(ticker)
+    iv_rank            = _get_hv_rank(history)   # HV rank proxy — stable on/off hours
     unusual_activity   = _get_unusual_options(ticker, price)
     earnings_days_away = _get_earnings_days_away(ticker)
 

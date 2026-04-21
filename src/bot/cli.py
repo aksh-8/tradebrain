@@ -56,7 +56,7 @@ def _print_research(r: ResearchResult) -> None:
     if r.iv_rank is not None:
         iv_color = "red" if r.iv_rank > 70 else "yellow" if r.iv_rank > 40 else "green"
         iv_note  = "expensive" if r.iv_rank > 70 else "moderate" if r.iv_rank > 40 else "cheap"
-        lines.append(f"[bold]IV rank[/bold]      [{iv_color}]{r.iv_rank:.0f}/100 ({iv_note})[/{iv_color}]")
+        lines.append(f"[bold]HV rank[/bold]      [{iv_color}]{r.iv_rank:.0f}/100 ({iv_note})[/{iv_color}]")
 
     # earnings
     if r.earnings_days_away is not None:
