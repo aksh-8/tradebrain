@@ -367,6 +367,150 @@ def _evaluate_pick_quality(picks: list[Pick], research: ResearchResult, budget: 
             "1 contract maximum.[/green]\n"
         )
 
+def _cmd_history(args: argparse.Namespace) -> None:
+    """
+    tradebrain history --last 10
+    tradebrain history --ticker AMD
+    tradebrain history --id 5
+    """
+    from bot.logger import get_recent_runs, get_runs_by_ticker, get_run_detail
+
+    # single run detail
+    if args.id:
+        run = get_run_detail(args.id)
+        if not run:
+            console.print(f"[red]No run found with id {args.id}[/red]")
+            return
+        _print_run_detail(run)
+        return
+
+    # filtered by ticker
+    if args.ticker:
+        runs = get_runs_by_ticker(args.ticker.upper(), n=args.last)
+    else:
+        runs = get_recent_runs(n=args.last)
+
+    if not runs:
+        console.print("[dim]No runs logged yet. Run tradebrain on a ticker first.[/dim]")
+        return
+
+    _print_run_table(runs)
+
+
+def _print_run_table(runs: list[dict]) -> None:
+    table = Table(
+        box=box.SIMPLE_HEAD,
+        show_header=True,
+        header_style="bold cyan",
+        padding=(0, 1),
+    )
+
+    table.add_column("ID",        style="dim",  width=4)
+    table.add_column("Date",      justify="left")
+    table.add_column("Ticker",    justify="center")
+    table.add_column("Direction", justify="center")
+    table.add_column("Verdict",   justify="center")
+    table.add_column("Conf",      justify="center")
+    table.add_column("HV rank",   justify="right")
+    table.add_column("Earnings",  justify="right")
+    table.add_column("Picks",     justify="right")
+    table.add_column("Budget",    justify="right")
+
+    for r in runs:
+        verdict = r.get("verdict") or "—"
+        verdict_color = {
+            "supported":    "green",
+            "contradicted": "red",
+            "neutral":      "yellow",
+        }.get(verdict, "dim")
+
+        direction = r.get("direction") or "—"
+        dir_color = {"bullish": "green", "bearish": "red"}.get(direction, "dim")
+
+        conf = r.get("confidence") or "—"
+        conf_color = {"high": "green", "medium": "yellow", "low": "red"}.get(conf, "dim")
+
+        iv = r.get("iv_rank")
+        iv_str = f"{iv:.0f}/100" if iv is not None else "—"
+
+        earn = r.get("earnings_days")
+        earn_str = f"{earn}d" if earn is not None else "—"
+        earn_color = "red" if earn is not None and earn <= 14 else "yellow" if earn is not None and earn <= 30 else "dim"
+
+        ts = (r.get("ts") or "")[:10]  # just the date
+
+        table.add_row(
+            str(r["id"]),
+            ts,
+            r.get("ticker") or "—",
+            f"[{dir_color}]{direction}[/{dir_color}]",
+            f"[{verdict_color}]{verdict}[/{verdict_color}]",
+            f"[{conf_color}]{conf}[/{conf_color}]",
+            iv_str,
+            f"[{earn_color}]{earn_str}[/{earn_color}]",
+            str(r.get("pick_count") or 0),
+            f"${r.get('budget') or 0:.0f}",
+        )
+
+    console.print(Panel(
+        table,
+        title="[bold cyan]tradebrain — run history[/bold cyan]",
+        border_style="cyan",
+        padding=(1, 1),
+    ))
+    console.print(
+        f"  [dim]Use [bold]tradebrain history --id N[/bold] to see full detail for a specific run.[/dim]\n"
+    )
+
+
+def _print_run_detail(run: dict) -> None:
+    lines = []
+    lines.append(f"[bold]Run ID[/bold]      {run['id']}")
+    lines.append(f"[bold]Date[/bold]        {(run.get('ts') or '')[:19]}")
+    lines.append(f"[bold]Ticker[/bold]      {run.get('ticker')}")
+    lines.append(f"[bold]Direction[/bold]   {run.get('direction')}")
+    lines.append(f"[bold]Budget[/bold]      ${run.get('budget') or 0:.0f}")
+    lines.append(f"[bold]Confidence[/bold]  {run.get('confidence')}")
+
+    verdict = run.get("verdict")
+    if verdict:
+        color = {"supported": "green", "contradicted": "red", "neutral": "yellow"}.get(verdict, "dim")
+        lines.append(f"[bold]Verdict[/bold]     [{color}]{verdict}[/{color}]")
+
+    reasoning = run.get("reasoning")
+    if reasoning:
+        lines.append(f"[bold]Reasoning[/bold]")
+        lines.append(f"  [dim]{reasoning}[/dim]")
+
+    thesis = run.get("thesis")
+    if thesis:
+        lines.append(f"[bold]Thesis[/bold]")
+        lines.append(f"  [dim]{thesis}[/dim]")
+
+    news = run.get("news")
+    if news:
+        lines.append(f"\n[bold]News[/bold]")
+        for h in news.split(" | "):
+            lines.append(f"  [dim]· {h.strip()}[/dim]")
+
+    console.print(Panel(
+        "\n".join(lines),
+        title=f"[bold cyan]Run {run['id']} — {run.get('ticker')}[/bold cyan]",
+        border_style="cyan",
+        padding=(1, 2),
+    ))
+
+    picks = run.get("picks") or []
+    if picks:
+        console.print(f"\n  [bold]Picks ({len(picks)}):[/bold]")
+        for p in picks:
+            console.print(
+                f"  #{p['rank']} {p['ticker']} ${p['strike']} {p['side']} "
+                f"exp={p['expiration']} cost=${p['cost']:.0f} "
+                f"breakeven=${p['breakeven']:.2f}"
+            )
+    else:
+        console.print("\n  [dim]No picks for this run.[/dim]")
 
 # ---------------------------------------------------------------------------
 # Entry point
@@ -377,15 +521,30 @@ def main() -> None:
         prog="tradebrain",
         description="Options research + contract selection. Feed it a ticker, a thesis, or both.",
     )
+
+    subparsers = ap.add_subparsers(dest="command")
+
+    # history subcommand
+    hist = subparsers.add_parser("history", help="Review past research runs")
+    hist.add_argument("--last",   type=int, default=10, help="Number of runs to show (default 10)")
+    hist.add_argument("--ticker", help="Filter by ticker")
+    hist.add_argument("--id",     type=int, help="Show full detail for a specific run ID")
+
+    # main research arguments (default command)
     ap.add_argument(
         "input",
         nargs="?",
         help='Ticker, thesis, or both. e.g. "AMD" or "AMD calls, 5 weeks green"',
     )
-    ap.add_argument("--budget", type=float, default=300.0, help="Max cost per contract in USD (default 300)")
-    ap.add_argument("--ticker", help="Explicit ticker override")
+    ap.add_argument("--budget",    type=float, default=300.0, help="Max cost per contract in USD (default 300)")
+    ap.add_argument("--ticker",    help="Explicit ticker override")
     ap.add_argument("--direction", choices=["bullish", "bearish"], help="Force direction")
     args = ap.parse_args()
+
+    # route to history command
+    if args.command == "history":
+        _cmd_history(args)
+        return
 
     raw = args.input or args.ticker
     if not raw:

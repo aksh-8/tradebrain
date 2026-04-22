@@ -155,3 +155,39 @@ def get_run_picks(run_id: int) -> list[dict]:
             (run_id,),
         ).fetchall()
     return [dict(r) for r in rows]
+
+def get_runs_by_ticker(ticker: str, n: int = 20) -> list[dict]:
+    """
+    Returns last n runs for a specific ticker, most recent first.
+    """
+    _init()
+    with _conn() as con:
+        rows = con.execute(
+            """
+            SELECT r.*, COUNT(p.id) as pick_count
+            FROM runs r
+            LEFT JOIN picks p ON p.run_id = r.id
+            WHERE r.ticker = ?
+            GROUP BY r.id
+            ORDER BY r.id DESC
+            LIMIT ?
+            """,
+            (ticker.upper().strip(), n),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_run_detail(run_id: int) -> dict:
+    """
+    Returns a single run with all its picks.
+    """
+    _init()
+    with _conn() as con:
+        row = con.execute(
+            "SELECT * FROM runs WHERE id = ?", (run_id,)
+        ).fetchone()
+        if not row:
+            return {}
+        result = dict(row)
+        result["picks"] = get_run_picks(run_id)
+    return result
