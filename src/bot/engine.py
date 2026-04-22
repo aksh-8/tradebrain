@@ -44,13 +44,50 @@ def _direction_to_side(direction: str) -> Optional[str]:
     return None
 
 
-def _dte_window(timeframe: str) -> tuple[int, int]:
-    return {
+def _dte_window(
+    timeframe: str,
+    earnings_days_away: Optional[int] = None,
+) -> tuple[int, int, Optional[str]]:
+    """
+    Returns (dte_min, dte_max, earnings_note).
+    Post-earnings window only. Pre-earnings picks fetched separately in run().
+    """
+    base_min, base_max = {
         "this week":    (5,  14),
         "this month":   (14, 35),
         "1-3 months":   (30, 90),
         "unknown":      (21, 60),
     }.get(timeframe, (21, 60))
+
+    if earnings_days_away is None:
+        return base_min, base_max, None
+
+    if earnings_days_away == 0:
+        dte_min = 7
+        dte_max = max(dte_min + 45, base_max)
+        return dte_min, dte_max, (
+            "Earnings TODAY — post-earnings contracts only. "
+            "Do not buy options on earnings day."
+        )
+
+    if earnings_days_away <= 3:
+        dte_min = earnings_days_away + 7
+        dte_max = max(dte_min + 45, base_max)
+        return dte_min, dte_max, (
+            f"Earnings in {earnings_days_away} days — pre-earnings run-up window closed. "
+            f"Showing post-earnings contracts only."
+        )
+
+    if earnings_days_away <= 30:
+        dte_min = earnings_days_away + 7
+        dte_max = max(dte_min + 45, base_max)
+        return dte_min, dte_max, (
+            f"Earnings in {earnings_days_away} days — "
+            f"showing POST-EARNINGS contracts as primary. "
+            f"Pre-earnings run-up contracts shown separately below."
+        )
+
+    return base_min, base_max, None
 
 
 def _dict_to_pick(d: dict, side: str) -> Pick:
@@ -136,7 +173,7 @@ def get_picks(
 # Public entry point
 # ---------------------------------------------------------------------------
 
-def run(intake: Intake) -> tuple[ResearchResult, list[Pick], str, Optional[str]]:
+def run(intake: Intake) -> tuple[ResearchResult, list[Pick], str, Optional[str], Optional[str], list[Pick]]:
     """
     Full pipeline:
       1. Research every ticker in intake
@@ -147,7 +184,7 @@ def run(intake: Intake) -> tuple[ResearchResult, list[Pick], str, Optional[str]]
     # Step 1 — research primary ticker
     primary_ticker = intake.tickers[0] if intake.tickers else None
     if not primary_ticker:
-        return _empty_research("unknown"), [], "no ticker provided", None
+        return _empty_research("unknown"), [], "no ticker provided", None, None, []
 
     research = research_ticker(
         ticker          = primary_ticker,
@@ -169,12 +206,19 @@ def run(intake: Intake) -> tuple[ResearchResult, list[Pick], str, Optional[str]]
     if user_direction != "unknown":
         if llm_verdict == "contradicted" and llm_confidence == "high":
             direction = llm_direction if llm_direction != "unknown" else user_direction
-            direction_note = (
-                f"[yellow]⚠ THESIS OVERRIDE[/yellow] — You said "
-                f"[bold]{user_direction}[/bold] but data says "
-                f"[bold]{direction}[/bold] with high confidence. "
-                f"Showing {direction} contracts. Review reasoning above."
-            )
+            if direction != user_direction:
+                direction_note = (
+                    f"[yellow]⚠ THESIS OVERRIDE[/yellow] — You said "
+                    f"[bold]{user_direction}[/bold] but data says "
+                    f"[bold]{direction}[/bold] with high confidence. "
+                    f"Showing {direction} contracts. Review reasoning above."
+                )
+            else:
+                direction_note = (
+                    f"[yellow]⚠ THESIS CONTRADICTED[/yellow] — Data contradicts your thesis "
+                    f"but direction is still [bold]{direction}[/bold]. "
+                    f"Review reasoning carefully before trading."
+                )
         elif llm_verdict == "contradicted" and llm_confidence == "medium":
             direction = user_direction
             direction_note = (
@@ -197,16 +241,19 @@ def run(intake: Intake) -> tuple[ResearchResult, list[Pick], str, Optional[str]]
     if side is None:
         return research, [], (
             f"direction is '{direction}' — need bullish or bearish to select contracts"
-        ), direction_note
-
+        ), direction_note, None, []
+    
     # Step 3 — confidence gate
     # Low confidence = warn but still proceed (user decides, not the bot)
-    dte_min, dte_max = _dte_window(intake.timeframe)
+    dte_min, dte_max, earnings_dte_note = _dte_window(
+        intake.timeframe,
+        earnings_days_away=research.earnings_days_away,
+    )
 
     # Step 4 — fetch live spot (research already has it, reuse)
     underlying = research.price
     if underlying <= 0:
-        return research, [], f"could not get live price for {primary_ticker}"
+        return research, [], f"could not get live price for {primary_ticker}", direction_note, None, []
 
     # Step 5 — get picks
     picks, reason = get_picks(
@@ -226,38 +273,73 @@ def run(intake: Intake) -> tuple[ResearchResult, list[Pick], str, Optional[str]]
             for p in picks
         ]
     
+    # Step 6 — pre-earnings run-up picks (Structure 1)
+    # Viable when earnings are 3-30 days away
+    # Not viable <= 3 days (too close) or > 30 days (use normal window)
+    pre_earnings_picks: list[Pick] = []
+    if (
+        research.earnings_days_away is not None
+        and 3 < research.earnings_days_away <= 30
+    ):
+        pre_dte_min = 5
+        pre_dte_max = research.earnings_days_away - 2  # must expire before earnings
+        if pre_dte_max > pre_dte_min:
+            pre_picks_raw, _ = get_picks(
+                ticker     = primary_ticker,
+                side       = side,
+                underlying = underlying,
+                budget     = intake.budget,
+                dte_min    = pre_dte_min,
+                dte_max    = pre_dte_max,
+                top_n      = 2,
+            )
+            if research.iv_rank is not None:
+                pre_picks_raw = [
+                    Pick(**{**p.__dict__, "iv_rank": research.iv_rank})
+                    for p in pre_picks_raw
+                ]
+            pre_earnings_picks = pre_picks_raw
+
     # log every run regardless of outcome
     try:
         log_run(intake, research, picks)
     except Exception:
         pass  # never let logging break the main pipeline
 
-    return research, picks, reason, direction_note
+    return research, picks, reason, direction_note, earnings_dte_note, pre_earnings_picks
 
 
 
 def _empty_research(ticker: str) -> ResearchResult:
     return ResearchResult(
-        ticker               = ticker,
-        price                = 0.0,
-        price_change_5d      = None,
-        price_change_1m      = None,
-        week_52_high         = None,
-        week_52_low          = None,
-        iv_rank              = None,
-        avg_volume           = None,
-        earnings_days_away   = None,
-        news_summary         = None,
-        thesis_verdict       = None,
-        thesis_reasoning     = None,
-        recommended_direction= "unknown",
-        confidence           = "low",
-        skip_reason          = "no ticker provided",
+        ticker                   = ticker,
+        price                    = 0.0,
+        price_change_5d          = None,
+        price_change_1m          = None,
+        week_52_high             = None,
+        week_52_low              = None,
+        sma50                    = None,
+        sma200                   = None,
+        above_sma50              = None,
+        above_sma200             = None,
+        iv_rank                  = None,
+        unusual_options_activity = None,
+        analyst_target           = None,
+        analyst_upside           = None,
+        analyst_rating           = None,
+        avg_volume               = None,
+        earnings_days_away       = None,
+        news_summary             = None,
+        thesis_verdict           = None,
+        thesis_reasoning         = None,
+        recommended_direction    = "unknown",
+        confidence               = "low",
+        skip_reason              = "no ticker provided",
     )
 
 def run_multi(
     intake: Intake,
-) -> list[tuple[ResearchResult, list[Pick], str, Optional[str]]]:
+) -> list[tuple[ResearchResult, list[Pick], str, Optional[str], Optional[str], list[Pick]]]:
     """
     Runs the full pipeline for every ticker in intake.
     Returns results sorted by confidence then price action.
@@ -269,15 +351,16 @@ def run_multi(
     results = []
     for ticker in intake.tickers:
         single_intake = Intake(
-            raw_text  = intake.raw_text,
-            tickers   = (ticker,),
-            direction = intake.direction,
-            thesis    = intake.thesis,
-            timeframe = intake.timeframe,
-            budget    = intake.budget,
+            raw_text        = intake.raw_text,
+            tickers         = (ticker,),
+            context_tickers = intake.context_tickers,
+            direction       = intake.direction,
+            thesis          = intake.thesis,
+            timeframe       = intake.timeframe,
+            budget          = intake.budget,
         )
-        research, picks, reason, direction_note = run(single_intake)
-        results.append((research, picks, reason, direction_note))
+        research, picks, reason, direction_note, earnings_dte_note, pre_earnings_picks = run(single_intake)
+        results.append((research, picks, reason, direction_note, earnings_dte_note, pre_earnings_picks))
 
     # sort: confidence high > medium > low, then by picks count
     conf_order = {"high": 0, "medium": 1, "low": 2}

@@ -184,6 +184,35 @@ def _print_picks(picks: list[Pick], budget: float) -> None:
         f"Suggested sizing: 1 contract at a time with ${budget:.0f} budget.[/dim]\n"
     )
 
+def _print_pre_earnings_picks(
+    picks: list[Pick],
+    budget: float,
+    hv_rank: Optional[float] = None,
+) -> None:
+    """
+    Displays pre-earnings run-up contracts (Structure 1).
+    These expire BEFORE earnings — user must exit 1-2 days before the report.
+    """
+    if not picks:
+        return
+
+    iv_warning = (
+        f"\n[red]⚠ HV rank {hv_rank:.0f}/100 — premium elevated. "
+        f"Run-up play is less favorable when IV is already high.[/red]"
+        if hv_rank is not None and hv_rank > 60 else ""
+    )
+
+    console.print("\n")
+    console.print(Panel(
+        "[bold yellow]Structure 1 — Pre-earnings run-up play[/bold yellow]\n"
+        "[dim]These contracts expire BEFORE earnings.\n"
+        "Strategy: buy now, ride momentum, EXIT 1-2 days before the report.\n"
+        "You never take earnings risk.[/dim]"
+        + iv_warning,
+        border_style="yellow",
+        padding=(1, 2),
+    ))
+    _print_picks(picks, budget)
 
 def _get_cheapest_contract(ticker: str) -> Optional[float]:
     from bot.chain_yf import get_expirations, get_chain, ChainError
@@ -327,24 +356,26 @@ def main() -> None:
     if args.ticker:
         from bot.models import Intake
         intake = Intake(
-            raw_text  = intake.raw_text,
-            tickers   = (args.ticker.upper(),) + tuple(
+            raw_text        = intake.raw_text,
+            tickers         = (args.ticker.upper(),) + tuple(
                 t for t in intake.tickers if t != args.ticker.upper()
             ),
-            direction = intake.direction,
-            thesis    = intake.thesis,
-            timeframe = intake.timeframe,
-            budget    = intake.budget,
+            context_tickers = intake.context_tickers,
+            direction       = intake.direction,
+            thesis          = intake.thesis,
+            timeframe       = intake.timeframe,
+            budget          = intake.budget,
         )
     if args.direction:
         from bot.models import Intake
         intake = Intake(
-            raw_text  = intake.raw_text,
-            tickers   = intake.tickers,
-            direction = args.direction,   # type: ignore[arg-type]
-            thesis    = intake.thesis,
-            timeframe = intake.timeframe,
-            budget    = intake.budget,
+            raw_text        = intake.raw_text,
+            tickers         = intake.tickers,
+            context_tickers = intake.context_tickers,
+            direction       = args.direction,   # type: ignore[arg-type]
+            thesis          = intake.thesis,
+            timeframe       = intake.timeframe,
+            budget          = intake.budget,
         )
 
     if not intake.tickers:
@@ -364,24 +395,38 @@ def main() -> None:
             from bot.engine import run_multi
             results = run_multi(intake)
 
-        for research, picks, reason, direction_note in results:
+        for research, picks, reason, direction_note, earnings_dte_note, pre_earnings_picks in results:
             _print_research(research)
             if direction_note:
                 console.print(f"\n  {direction_note}\n")
+            if earnings_dte_note:
+                console.print(f"\n  [yellow]DTE adjusted:[/yellow] [dim]{earnings_dte_note}[/dim]\n")
             if picks:
                 _print_picks(picks, args.budget)
+                if pre_earnings_picks:
+                    _print_pre_earnings_picks(
+                        pre_earnings_picks,
+                        args.budget,
+                        hv_rank=research.iv_rank,
+                    )
             else:
                 _print_budget_warning(research.ticker, args.budget, reason)
     else:
         with console.status("[cyan]Researching...[/cyan]", spinner="dots"):
-            research, picks, reason, direction_note = run(intake)
-
+            research, picks, reason, direction_note, earnings_dte_note, pre_earnings_picks = run(intake)
         _print_research(research)
         if direction_note:
             console.print(f"\n  {direction_note}\n")
-
+        if earnings_dte_note:
+            console.print(f"\n  [yellow]DTE adjusted:[/yellow] [dim]{earnings_dte_note}[/dim]\n")
         if picks:
             _print_picks(picks, args.budget)
+            if pre_earnings_picks:
+                _print_pre_earnings_picks(
+                    pre_earnings_picks,
+                    args.budget,
+                    hv_rank=research.iv_rank,
+                )
         else:
             _print_budget_warning(intake.tickers[0], args.budget, reason)
 
@@ -424,13 +469,19 @@ def main() -> None:
                 )
                 console.print(f"\n[dim]Retrying with budget ${suggested}...[/dim]\n")
                 with console.status("[cyan]Researching...[/cyan]", spinner="dots"):
-                    research2, picks2, reason2, direction_note2 = run(new_intake)
-
+                    research2, picks2, reason2, direction_note2, earnings_dte_note2, pre_earnings_picks2 = run(new_intake)
                 if direction_note2:
                     console.print(f"\n  {direction_note2}\n")
-
+                if earnings_dte_note2:
+                    console.print(f"\n  [yellow]DTE adjusted:[/yellow] [dim]{earnings_dte_note2}[/dim]\n")
                 if picks2:
                     _print_picks(picks2, float(suggested))
+                    if pre_earnings_picks2:
+                        _print_pre_earnings_picks(
+                            pre_earnings_picks2,
+                            float(suggested),
+                            hv_rank=research2.iv_rank,
+                        )
                     _evaluate_pick_quality(picks2, research2, float(suggested))
                     break
                 else:
