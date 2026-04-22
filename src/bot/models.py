@@ -87,6 +87,13 @@ class Pick:
     oi: Optional[int]                    # open interest
     volume: Optional[int]
     spread_pct: float                    # (ask - bid) / mid
+    # Black-Scholes Greeks
+    delta:       Optional[float]   # directional exposure per $1 move
+    gamma:       Optional[float]   # rate of delta change
+    theta:       Optional[float]   # daily time decay $ per contract
+    vega:        Optional[float]   # $ change per 1-point IV move
+    prob_itm:    Optional[float]   # probability of expiring ITM
+    prob_profit: Optional[float]   # probability of profit at expiry
     rank_score: float                    # internal ranking score
     why: Tuple[str, ...]                 # human-readable reasons
     relaxed: bool                        # True if fallback filters were used

@@ -93,26 +93,32 @@ def _dte_window(
 def _dict_to_pick(d: dict, side: str) -> Pick:
     c = d["contract"]
     return Pick(
-        ticker     = d["ticker"],
-        expiration = c.expiration,
-        strike     = c.strike,
-        side       = side,          # type: ignore[arg-type]
-        dte        = d["dte"],
-        bid        = c.bid,
-        ask        = c.ask,
-        mid        = d["mid"],
-        cost       = d["cost"],
-        breakeven  = d["breakeven"],
-        otm_pct    = d["otm_pct"],
-        iv         = d["iv"],
-        iv_rank    = None,          # ticker-level iv_rank attached by caller
-        oi         = c.oi,
-        volume     = c.volume,
-        spread_pct = d["spread_pct"],
-        rank_score = d["rank_score"],
-        why        = d["why"],
-        relaxed    = d["relaxed"],
-        relax_note = d["relax_note"],
+        ticker       = d["ticker"],
+        expiration   = c.expiration,
+        strike       = c.strike,
+        side         = side,          # type: ignore[arg-type]
+        dte          = d["dte"],
+        bid          = c.bid,
+        ask          = c.ask,
+        mid          = d["mid"],
+        cost         = d["cost"],
+        breakeven    = d["breakeven"],
+        otm_pct      = d["otm_pct"],
+        iv           = d["iv"],
+        iv_rank      = None,          # ticker-level iv_rank attached by caller
+        oi           = c.oi,
+        volume       = c.volume,
+        spread_pct   = d["spread_pct"],
+        delta        = d.get("delta"),
+        gamma        = d.get("gamma"),
+        theta        = d.get("theta"),
+        vega         = d.get("vega"),
+        prob_itm     = d.get("prob_itm"),
+        prob_profit  = d.get("prob_profit"),
+        rank_score   = d["rank_score"],
+        why          = d["why"],
+        relaxed      = d["relaxed"],
+        relax_note   = d["relax_note"],
     )
 
 

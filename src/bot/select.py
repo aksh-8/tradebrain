@@ -6,6 +6,7 @@ from math import log
 from typing import List, Optional, Tuple, Literal
 
 from bot.chain_yf import YFContract
+from bot.bs import compute_greeks
 
 
 CallPut = Literal["call", "put"]
@@ -164,6 +165,18 @@ def select_contracts(
                 else f"last=${m:.2f} (${cost:.0f}) [NO BID/ASK]"
             )
 
+            # compute Black-Scholes Greeks if IV available
+            greeks = {}
+            if c.iv and c.iv > 0 and m and m > 0:
+                greeks = compute_greeks(
+                    spot     = underlying,
+                    strike   = c.strike,
+                    dte      = d,
+                    iv       = c.iv,
+                    side     = side,
+                    premium  = m,
+                )
+
             out.append({
                 "ticker":      ticker,
                 "contract":    c,
@@ -174,6 +187,12 @@ def select_contracts(
                 "spread_pct":  sp,
                 "otm_pct":     otm,
                 "iv":          c.iv,
+                "delta":       greeks.get("delta"),
+                "gamma":       greeks.get("gamma"),
+                "theta":       greeks.get("theta"),
+                "vega":        greeks.get("vega"),
+                "prob_itm":    greeks.get("prob_itm"),
+                "prob_profit": greeks.get("prob_profit"),
                 "rank_score":  score,
                 "why":         (price_note, spread_str, f"OI={oi}", f"vol={vol}", f"DTE={d}", f"OTM={otm*100:.1f}%"),
                 "relaxed":     relaxed or used_last,

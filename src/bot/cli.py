@@ -136,26 +136,60 @@ def _print_picks(picks: list[Pick], budget: float) -> None:
         padding=(0, 1),
     )
 
-    table.add_column("#",          style="dim",   width=3)
-    table.add_column("Strike",     justify="right")
-    table.add_column("Side",       justify="center")
-    table.add_column("Expiry",     justify="center")
-    table.add_column("DTE",        justify="right")
-    table.add_column("Cost",       justify="right")
-    table.add_column("Breakeven",  justify="right")
-    table.add_column("OTM%",       justify="right")
-    table.add_column("IV",         justify="right")
-    table.add_column("OI",         justify="right")
-    table.add_column("Spread",     justify="right")
-    table.add_column("Note",       style="dim")
+    table.add_column("#",       style="dim", width=3)
+    table.add_column("Strike",  justify="right")
+    table.add_column("Side",    justify="center")
+    table.add_column("Expiry",  justify="center")
+    table.add_column("DTE",     justify="right")
+    table.add_column("Cost",    justify="right")
+    table.add_column("Ask",     justify="right")
+    table.add_column("Brkeven", justify="right")
+    table.add_column("Delta",   justify="right")
+    table.add_column("Theta/d", justify="right")
+    table.add_column("Vega",    justify="right")
+    table.add_column("PoP",     justify="right")
+    table.add_column("IV",      justify="right")
+    table.add_column("OI",      justify="right")
+    table.add_column("Spread",  justify="right")
+    table.add_column("Note",    style="dim")
 
     for i, p in enumerate(picks, 1):
         side_color = "green" if p.side == "call" else "red"
         cost_color = "yellow" if p.cost > budget * 0.8 else "white"
 
-        iv_str     = f"{p.iv*100:.0f}%" if p.iv else "—"
+        iv_str     = f"{p.iv*100:.0f}%"    if p.iv           else "—"
         spread_str = f"{p.spread_pct*100:.1f}%" if p.spread_pct < 999 else "—"
-        note       = f"[yellow]relaxed[/yellow]" if p.relaxed else ""
+        note       = "[yellow]relaxed[/yellow]" if p.relaxed  else ""
+
+        # ask price — real Robinhood execution cost
+        ask_str    = f"${p.ask:.2f}"        if p.ask          else "—"
+
+        # Greeks
+        delta_str  = f"{p.delta:+.2f}"      if p.delta is not None       else "—"
+        theta_str  = f"${p.theta:.1f}/d"    if p.theta is not None       else "—"
+        vega_str   = f"${p.vega:.1f}"       if p.vega is not None        else "—"
+        pop_str    = f"{p.prob_profit*100:.0f}%" if p.prob_profit is not None else "—"
+
+        # colour delta by conviction
+        delta_color = (
+            "green"  if p.delta is not None and abs(p.delta) >= 0.40 else
+            "yellow" if p.delta is not None and abs(p.delta) >= 0.25 else
+            "dim"
+        )
+
+        # colour theta — bigger daily bleed = more warning
+        theta_color = (
+            "red"    if p.theta is not None and p.theta < -20 else
+            "yellow" if p.theta is not None and p.theta < -10 else
+            "dim"
+        )
+
+        # colour PoP
+        pop_color = (
+            "green"  if p.prob_profit is not None and p.prob_profit >= 0.40 else
+            "yellow" if p.prob_profit is not None and p.prob_profit >= 0.25 else
+            "red"
+        )
 
         table.add_row(
             str(i),
@@ -164,8 +198,12 @@ def _print_picks(picks: list[Pick], budget: float) -> None:
             p.expiration,
             str(p.dte),
             f"[{cost_color}]${p.cost:.0f}[/{cost_color}]",
+            ask_str,
             f"${p.breakeven:.2f}",
-            f"{p.otm_pct*100:.1f}%",
+            f"[{delta_color}]{delta_str}[/{delta_color}]",
+            f"[{theta_color}]{theta_str}[/{theta_color}]",
+            vega_str,
+            f"[{pop_color}]{pop_str}[/{pop_color}]",
             iv_str,
             f"{p.oi:,}" if p.oi else "—",
             spread_str,
@@ -180,8 +218,13 @@ def _print_picks(picks: list[Pick], budget: float) -> None:
     ))
 
     console.print(
-        f"  [dim]Max loss per contract = cost shown. "
-        f"Suggested sizing: 1 contract at a time with ${budget:.0f} budget.[/dim]\n"
+        f"  [dim]Delta: directional exposure per $1 move  |  "
+        f"Theta: daily time decay per contract  |  "
+        f"Vega: $ change per 1pt IV move  |  "
+        f"PoP: probability of profit at expiry[/dim]\n"
+        f"  [dim]Ask = Robinhood execution price. "
+        f"Max loss = cost shown. "
+        f"1 contract at a time with ${budget:.0f} budget.[/dim]\n"
     )
 
 def _print_pre_earnings_picks(
