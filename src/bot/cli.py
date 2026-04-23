@@ -517,18 +517,20 @@ def _print_run_detail(run: dict) -> None:
 # ---------------------------------------------------------------------------
 
 def main() -> None:
+    # route history command before argparse to avoid positional conflict
+    if len(sys.argv) > 1 and sys.argv[1] == "history":
+        hist_ap = argparse.ArgumentParser(prog="tradebrain history")
+        hist_ap.add_argument("--last",   type=int, default=10, help="Number of runs to show (default 10)")
+        hist_ap.add_argument("--ticker", help="Filter by ticker")
+        hist_ap.add_argument("--id",     type=int, help="Show full detail for a specific  run ID")
+        hist_args = hist_ap.parse_args(sys.argv[2:])
+        _cmd_history(hist_args)
+        return
+
     ap = argparse.ArgumentParser(
         prog="tradebrain",
         description="Options research + contract selection. Feed it a ticker, a thesis, or both.",
     )
-
-    subparsers = ap.add_subparsers(dest="command")
-
-    # history subcommand
-    hist = subparsers.add_parser("history", help="Review past research runs")
-    hist.add_argument("--last",   type=int, default=10, help="Number of runs to show (default 10)")
-    hist.add_argument("--ticker", help="Filter by ticker")
-    hist.add_argument("--id",     type=int, help="Show full detail for a specific run ID")
 
     # main research arguments (default command)
     ap.add_argument(
@@ -540,11 +542,6 @@ def main() -> None:
     ap.add_argument("--ticker",    help="Explicit ticker override")
     ap.add_argument("--direction", choices=["bullish", "bearish"], help="Force direction")
     args = ap.parse_args()
-
-    # route to history command
-    if args.command == "history":
-        _cmd_history(args)
-        return
 
     raw = args.input or args.ticker
     if not raw:

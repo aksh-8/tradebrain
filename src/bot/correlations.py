@@ -216,6 +216,10 @@ BULLISH_SIGNALS: list[str] = [
     "upside", "surge", "push", "explosive", "opportunity", "seized",
     "impressive", "outperform", "upgrade", "raised target",
     "call sweep", "call wall", "above ask", "momentum",
+    "looks ready", "ready to go", "sets up", "set up", "setting up",
+    "due time", "going to", "held", "held where", "above 40", "above 50",
+    "discount", "pureplay", "pure play", "independent", "undervalued",
+    "hidden gem", "overlooked", "breakout setup", "lotto", "capex play",
 ]
 
 BEARISH_SIGNALS: list[str] = [

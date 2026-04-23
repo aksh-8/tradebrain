@@ -7,7 +7,7 @@
     "MARA", "RIOT", "RGTI", "QBTS", "HIMS", "OSCR", "UNH", "NET",
     "SNOW", "DDOG", "NOW", "CRM", "SOUN", "SMR", "MRVL", "TSM",
     "INOD", "S", "IONQ", "BITF", "CORZ", "EOSE", "CEG", "VST",
-    "SERV", "PATH", "SYM", "AMBA", "RR", "ZETA", "BBAI"
+    "SERV", "PATH", "SYM", "AMBA", "RR", "ZETA", "BBAI", "URA", "CCJ", "NLR"
   ],
   "proxies": {
     "SPY": "IWM",
