@@ -127,8 +127,12 @@ def _get_news(ticker: str) -> Optional[str]:
     if not DDG_AVAILABLE:
         return None
     try:
+        # short tickers get company name appended to avoid generic news
+        from bot.correlations import get_company_name
+        company = get_company_name(ticker) if len(ticker) <= 2 else None
+        query = f"{ticker} {company} stock" if company else f"{ticker} stock"
         with DDGS() as ddgs:
-            results = list(ddgs.news(f"{ticker} stock", max_results=6))
+            results = list(ddgs.news(query, max_results=6))
         if not results:
             return None
         headlines = [r.get("title", "") for r in results if r.get("title")]

@@ -76,6 +76,21 @@ def find_ticker_in_text(text: str) -> Optional[str]:
             return name_map[name]
     return None
 
+def get_company_name(ticker: str) -> Optional[str]:
+    """
+    Returns the most common company name for a ticker, or None.
+    e.g. "S" -> "SentinelOne", "MSFT" -> "Microsoft"
+    """
+    d = _load()
+    name_map = d.get("company_name_map", {})
+    # reverse lookup — find first name that maps to this ticker
+    ticker = ticker.upper().strip()
+    for name, t in name_map.items():
+        if t == ticker:
+            # capitalise first letter of each word
+            return " ".join(w.capitalize() for w in name.split())
+    return None
+
 def get_sector(ticker: str) -> Optional[SectorInfo]:
     """
     Returns the sector a ticker belongs to, or None.
