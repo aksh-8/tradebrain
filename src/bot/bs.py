@@ -139,3 +139,86 @@ def compute_greeks(
         "prob_itm":    round(prob_itm, 3),
         "prob_profit": round(prob_profit, 3),
     }
+
+def kelly_size(
+    pop: float,
+    cost: float,
+    bankroll: float,
+    target_multiple: float = 3.0,
+) -> dict:
+    """
+    Computes Kelly position sizing for a long options trade.
+
+    Args:
+      pop            — probability of profit (0.0-1.0) from Black-Scholes
+      cost           — contract cost in dollars (mid * 100)
+      bankroll       — total trading capital in dollars
+      target_multiple — expected return multiple if trade wins (default 2x)
+                        conservative estimate — options can return much more
+
+    Returns dict with:
+      full_kelly_pct  — full Kelly fraction (too aggressive, shown for reference)
+      half_kelly_pct  — half Kelly fraction (recommended for retail)
+      suggested_usd   — dollar amount to risk (half Kelly × bankroll)
+      max_contracts   — how many contracts fit in suggested_usd
+      verdict         — plain English sizing recommendation
+    """
+    if pop <= 0 or pop >= 1 or cost <= 0 or bankroll <= 0:
+        return {}
+
+    win_prob  = pop
+    loss_prob = 1.0 - pop
+
+    # reward ratio: how much you win vs how much you lose
+    # if you risk $250 and target 2x, you make $250 on a win
+    reward_ratio = target_multiple - 1.0  # net gain per dollar risked
+
+    # full Kelly formula
+    full_kelly = (win_prob * reward_ratio - loss_prob) / reward_ratio
+    full_kelly = max(0.0, full_kelly)  # never negative
+
+    # half Kelly — standard retail recommendation
+    # reduces variance significantly while keeping most of the edge
+    half_kelly = full_kelly / 2.0
+
+    suggested_usd  = round(half_kelly * bankroll, 2)
+    max_contracts  = int(suggested_usd // cost) if cost > 0 else 0
+
+    half_kelly_pct = round(half_kelly * 100, 1)
+    full_kelly_pct = round(full_kelly * 100, 1)
+
+    # how many times over Kelly is one contract
+    one_contract_pct = (cost / bankroll) * 100
+    kelly_multiple = round(one_contract_pct / half_kelly_pct, 1) if half_kelly_pct > 0 else 999
+
+    # verdict
+    if full_kelly <= 0:
+        verdict = (
+            f"No mathematical edge at this PoP with 3x target. "
+            f"One contract = {one_contract_pct:.1f}% of bankroll. "
+            f"Skip or treat as speculative lottery — size at $50 max."
+        )
+    elif suggested_usd < cost:
+        verdict = (
+            f"Kelly suggests ${suggested_usd:.0f} but one contract costs ${cost:.0f} "
+            f"({one_contract_pct:.1f}% of bankroll = {kelly_multiple}x your Kelly limit). "
+            f"If you trade this, you are over-betting. 1 contract maximum, high conviction only."
+        )
+    elif max_contracts == 1:
+        verdict = (
+            f"1 contract. Kelly allocation ${suggested_usd:.0f} "
+            f"({half_kelly_pct:.1f}% of bankroll). Sized correctly."
+        )
+    else:
+        verdict = (
+            f"Kelly allows up to {max_contracts} contracts (${suggested_usd:.0f}). "
+            f"Start with 1 — scale only after consistent wins."
+        )
+
+    return {
+        "full_kelly_pct": full_kelly_pct,
+        "half_kelly_pct": half_kelly_pct,
+        "suggested_usd":  suggested_usd,
+        "max_contracts":  max_contracts,
+        "verdict":        verdict,
+    }

@@ -367,6 +367,42 @@ def _evaluate_pick_quality(picks: list[Pick], research: ResearchResult, budget: 
             "1 contract maximum.[/green]\n"
         )
 
+def _print_kelly_sizing(picks: list[Pick], budget: float) -> None:
+    """
+    Shows Kelly position sizing for the best pick.
+    Uses PoP from Black-Scholes already computed in select.py.
+    """
+    from bot.bs import kelly_size
+
+    if not picks:
+        return
+
+    best = picks[0]
+    if best.prob_profit is None:
+        return
+
+    k = kelly_size(
+        pop      = best.prob_profit,
+        cost     = best.cost,
+        bankroll = budget,
+    )
+    if not k:
+        return
+
+    color = (
+        "green"  if k["max_contracts"] >= 1 and k["suggested_usd"] >= best.cost else
+        "yellow" if k["full_kelly_pct"] > 0 else
+        "red"
+    )
+
+    console.print(
+        f"\n  [bold]Kelly sizing[/bold] — best pick  "
+        f"PoP=[bold]{best.prob_profit*100:.0f}%[/bold]  "
+        f"half-Kelly=[bold]{k['half_kelly_pct']:.1f}%[/bold]  "
+        f"suggested=[bold]${k['suggested_usd']:.0f}[/bold]\n"
+        f"  [{color}]{k['verdict']}[/{color}]\n"
+    )
+
 def _cmd_history(args: argparse.Namespace) -> None:
     """
     tradebrain history --last 10
@@ -602,6 +638,7 @@ def main() -> None:
                 console.print(f"\n  [yellow]DTE adjusted:[/yellow] [dim]{earnings_dte_note}[/dim]\n")
             if picks:
                 _print_picks(picks, args.budget)
+                _print_kelly_sizing(picks, args.budget)
                 if pre_earnings_picks:
                     _print_pre_earnings_picks(
                         pre_earnings_picks,
@@ -620,6 +657,7 @@ def main() -> None:
             console.print(f"\n  [yellow]DTE adjusted:[/yellow] [dim]{earnings_dte_note}[/dim]\n")
         if picks:
             _print_picks(picks, args.budget)
+            _print_kelly_sizing(picks, args.budget)
             if pre_earnings_picks:
                 _print_pre_earnings_picks(
                     pre_earnings_picks,
@@ -675,6 +713,7 @@ def main() -> None:
                     console.print(f"\n  [yellow]DTE adjusted:[/yellow] [dim]{earnings_dte_note2}[/dim]\n")
                 if picks2:
                     _print_picks(picks2, float(suggested))
+                    _print_kelly_sizing(picks2, float(suggested))
                     if pre_earnings_picks2:
                         _print_pre_earnings_picks(
                             pre_earnings_picks2,
