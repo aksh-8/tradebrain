@@ -37,6 +37,7 @@ class Settings:
     ollama_url: str
     ollama_model: str
     ollama_timeout: int
+    bankroll_usd: float = 2000.0
 
 
 def get_settings() -> Settings:
@@ -48,6 +49,7 @@ def get_settings() -> Settings:
         ollama_url         = os.getenv("OLLAMA_URL", "http://localhost:11434/api/generate"),
         ollama_model       = os.getenv("OLLAMA_MODEL", "qwen2.5:14b"),
         ollama_timeout     = int(os.getenv("OLLAMA_TIMEOUT", "120")),
+        bankroll_usd       = float(os.getenv("BANKROLL_USD", "1000").strip()),
     )
 
 

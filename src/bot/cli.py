@@ -373,18 +373,18 @@ def _print_kelly_sizing(picks: list[Pick], budget: float) -> None:
     Uses PoP from Black-Scholes already computed in select.py.
     """
     from bot.bs import kelly_size
-
+    from bot.config import get_settings
     if not picks:
         return
 
     best = picks[0]
     if best.prob_profit is None:
         return
-
+    bankroll = get_settings().bankroll_usd
     k = kelly_size(
         pop      = best.prob_profit,
         cost     = best.cost,
-        bankroll = budget,
+        bankroll = bankroll,
     )
     if not k:
         return
