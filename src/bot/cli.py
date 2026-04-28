@@ -548,6 +548,142 @@ def _print_run_detail(run: dict) -> None:
     else:
         console.print("\n  [dim]No picks for this run.[/dim]")
 
+def _cmd_watch(args: argparse.Namespace) -> None:
+    """
+    tradebrain watch
+    tradebrain watch --budget 500
+    tradebrain watch --direction bullish
+    Runs research on every ticker in config/watchlist.json.
+    Sorted by confidence then signal strength.
+    """
+    import json
+    from pathlib import Path
+    from bot.engine import run
+
+    watchlist_path = Path(__file__).parent.parent.parent / "config" / "watchlist.json"
+    if not watchlist_path.exists():
+        console.print("[red]No watchlist found. Create config/watchlist.json first.[/red]")
+        return
+
+    with open(watchlist_path) as f:
+        wl = json.load(f)
+
+    tickers  = wl.get("tickers", [])
+    budget   = args.budget or wl.get("default_budget", 300)
+    direction = getattr(args, "direction", None) or "unknown"
+
+    if not tickers:
+        console.print("[red]Watchlist is empty. Add tickers to config/watchlist.json.[/red]")
+        return
+
+    console.print(f"\n[bold cyan]tradebrain watch[/bold cyan] — scanning {len(tickers)} tickers  budget=${budget:.0f}\n")
+
+    results = []
+    for ticker in tickers:
+        with console.status(f"[cyan]Researching {ticker}...[/cyan]", spinner="dots"):
+            from bot.models import Intake
+            intake = Intake(
+                raw_text        = ticker,
+                tickers         = (ticker.upper(),),
+                context_tickers = (),
+                direction       = direction,  # type: ignore[arg-type]
+                thesis          = None,
+                timeframe       = "unknown",
+                budget          = float(budget),
+            )
+            research, picks, reason, direction_note, earnings_dte_note, pre_earnings_picks = run(intake)
+            results.append((research, picks, reason, direction_note, earnings_dte_note, pre_earnings_picks))
+
+    # sort: confidence high > medium > low, then picks count, then HV rank low > high
+    conf_order = {"high": 0, "medium": 1, "low": 2}
+    results.sort(key=lambda x: (
+        conf_order.get(x[0].confidence, 9),
+        -len(x[1]),
+        x[0].iv_rank or 100,
+    ))
+
+    # summary table first
+    table = Table(
+        box=box.SIMPLE_HEAD,
+        show_header=True,
+        header_style="bold cyan",
+        padding=(0, 1),
+    )
+    table.add_column("Ticker",    justify="center")
+    table.add_column("Price",     justify="right")
+    table.add_column("1mo",       justify="right")
+    table.add_column("Signal",    justify="center")
+    table.add_column("Conf",      justify="center")
+    table.add_column("Verdict",   justify="center")
+    table.add_column("HV rank",   justify="right")
+    table.add_column("Earnings",  justify="right")
+    table.add_column("Picks",     justify="right")
+    table.add_column("Best PoP",  justify="right")
+
+    for research, picks, reason, dn, en, pre in results:
+        dir_color  = {"bullish": "green", "bearish": "red"}.get(research.recommended_direction, "dim")
+        conf_color = {"high": "green", "medium": "yellow", "low": "red"}.get(research.confidence, "dim")
+        verdict_color = {"supported": "green", "contradicted": "red", "neutral": "yellow"}.get(
+            research.thesis_verdict or "", "dim"
+        )
+
+        price_1m = f"{research.price_change_1m:+.1f}%" if research.price_change_1m is not None else "—"
+        hv = f"{research.iv_rank:.0f}/100" if research.iv_rank is not None else "—"
+        earn = f"{research.earnings_days_away}d" if research.earnings_days_away is not None else "—"
+        earn_color = "red" if research.earnings_days_away is not None and research.earnings_days_away <= 14 else "yellow" if research.earnings_days_away is not None and research.earnings_days_away <= 30 else "dim"
+
+        best_pop = "—"
+        if picks and picks[0].prob_profit is not None:
+            best_pop = f"{picks[0].prob_profit*100:.0f}%"
+            pop_color = "green" if picks[0].prob_profit >= 0.40 else "yellow" if picks[0].prob_profit >= 0.25 else "red"
+        else:
+            pop_color = "dim"
+
+        table.add_row(
+            f"[bold]{research.ticker}[/bold]",
+            f"${research.price:.2f}",
+            price_1m,
+            f"[{dir_color}]{research.recommended_direction}[/{dir_color}]",
+            f"[{conf_color}]{research.confidence}[/{conf_color}]",
+            f"[{verdict_color}]{research.thesis_verdict or '—'}[/{verdict_color}]",
+            hv,
+            f"[{earn_color}]{earn}[/{earn_color}]",
+            str(len(picks)),
+            f"[{pop_color}]{best_pop}[/{pop_color}]",
+        )
+
+    console.print(Panel(
+        table,
+        title="[bold cyan]Morning Scan — Watchlist[/bold cyan]",
+        border_style="cyan",
+        padding=(1, 1),
+    ))
+    console.print(
+        "  [dim]Sorted by confidence then picks. "
+        "Run [bold]tradebrain \"TICKER thesis\" --budget N[/bold] for full analysis.[/dim]\n"
+    )
+
+    # show full detail for high confidence picks with contracts
+    top_picks = [(r, p, dn, en, pre) for r, p, reason, dn, en, pre in results
+                 if r.confidence == "high" and len(p) > 0]
+
+    if top_picks:
+        console.print(f"[bold green]High confidence picks ({len(top_picks)} tickers):[/bold green]\n")
+        for research, picks, direction_note, earnings_dte_note, pre_earnings_picks in top_picks:
+            _print_research(research)
+            if direction_note:
+                console.print(f"\n  {direction_note}\n")
+            if earnings_dte_note:
+                console.print(f"\n  [yellow]DTE adjusted:[/yellow] [dim]{earnings_dte_note}[/dim]\n")
+            _print_picks(picks, budget)
+            _print_kelly_sizing(picks, budget)
+            if pre_earnings_picks:
+                _print_pre_earnings_picks(
+                    pre_earnings_picks,
+                    budget,
+                    hv_rank=research.iv_rank,
+                )
+
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
@@ -561,6 +697,15 @@ def main() -> None:
         hist_ap.add_argument("--id",     type=int, help="Show full detail for a specific  run ID")
         hist_args = hist_ap.parse_args(sys.argv[2:])
         _cmd_history(hist_args)
+        return
+    
+    # route watch command
+    if len(sys.argv) > 1 and sys.argv[1] == "watch":
+        watch_ap = argparse.ArgumentParser(prog="tradebrain watch")
+        watch_ap.add_argument("--budget",    type=float, help="Override default budget from watchlist.json")
+        watch_ap.add_argument("--direction", choices=["bullish", "bearish"], help="Force direction for all tickers")
+        watch_args = watch_ap.parse_args(sys.argv[2:])
+        _cmd_watch(watch_args)
         return
 
     ap = argparse.ArgumentParser(
