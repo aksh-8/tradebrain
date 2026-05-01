@@ -12,7 +12,7 @@ _data: Optional[dict] = None
 def _load() -> dict:
     global _data
     if _data is None:
-        with open(_SECTORS_PATH, "r") as f:
+        with open(_SECTORS_PATH, "r", encoding="utf-8") as f:
             _data = json.load(f)
     return _data
 

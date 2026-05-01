@@ -71,6 +71,18 @@ def _regex_parse(raw: str, budget: float) -> Intake:
         primary = tickers[:1] if tickers else []
         context = tickers[1:] if len(tickers) > 1 else []
 
+    # auto-discover unknown tickers before proceeding
+    if primary and primary[0] not in KNOWN_TICKERS:
+        from bot.ticker_discovery import discover_and_add
+        discovery = discover_and_add(primary[0])
+        if discovery["success"]:
+            if discovery.get("new"):
+                print(f"\n  [auto-discovery] Added {discovery['ticker']} "
+                      f"({discovery.get('company_name', '')}) → "
+                      f"{discovery.get('sector_name', '')} | "
+                      f"beta={discovery.get('beta', '')}\n")
+        else:
+            print(f"\n  [auto-discovery] {discovery['message']}\n")
     return Intake(
         raw_text        = raw,
         tickers         = tuple(primary),
@@ -178,6 +190,19 @@ Rules:
 
             if not primary_raw:
                 return None
+            
+            # auto-discover unknown tickers before proceeding
+            if primary_raw and primary_raw not in known:
+                from bot.ticker_discovery import discover_and_add
+                discovery = discover_and_add(primary_raw)
+                if discovery["success"]:
+                    if discovery.get("new"):
+                        print(f"\n  [auto-discovery] Added {discovery['ticker']} "
+                              f"({discovery.get('company_name', '')}) → "
+                              f"{discovery.get('sector_name', '')} | "
+                              f"beta={discovery.get('beta', '')}\n")
+                else:
+                    print(f"\n  [auto-discovery] {discovery['message']}\n")
 
             return Intake(
                 raw_text        = raw,
