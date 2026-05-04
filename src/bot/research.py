@@ -481,19 +481,28 @@ Your job:
 3. What are the top 1-2 risks to this trade right now?
 4. Is the IV environment favorable for buying options?
 
-Rules:
-- Be direct and specific. No generic statements.
+TECHNICAL ANALYSIS RULES — follow these if the thesis contains chart language:
+- If thesis mentions a moving average (50D, 200D, SMA, EMA), verify against the data provided and comment on it specifically.
+- If thesis mentions a price target, evaluate whether it is realistic given current price, momentum, and analyst consensus.
+- If thesis mentions support/resistance, confluence, breakout, or psychological levels, treat these as primary thesis drivers and evaluate them directly.
+- If thesis mentions previous ATH, all-time high, or historical levels, acknowledge them as valid technical reference points.
+- "Confluence" means multiple signals aligning at the same price — treat this as a stronger signal than any single indicator.
+- Never ignore specific price levels mentioned in the thesis. Always comment on whether the data supports reaching those levels.
+- If the thesis is purely technical (chart-based) and fundamental data is mixed, weight the technical evidence appropriately — do not default to fundamental analysis.
+
+FUNDAMENTAL RULES:
 - Always address earnings risk if within 21 days.
 - Always comment on IV environment.
 - Reference sector context if relevant.
 - If thesis is contradicted by data, say so clearly.
+- Be direct and specific. No generic statements.
 
 Reply with ONLY valid JSON:
 {{
   "verdict": "supported" | "contradicted" | "neutral",
   "direction": "bullish" | "bearish" | "unknown",
   "confidence": "high" | "medium" | "low",
-  "reasoning": "3-4 sentence analysis covering thesis alignment, key risks, IV environment, and sector context"
+  "reasoning": "3-4 sentence analysis. If thesis is technical, directly address the specific levels, confluences, and targets mentioned. Cover IV environment and top risk."
 }}"""
     else:
         prompt = f"""You are a senior options trading analyst at a quantitative hedge fund.
@@ -512,12 +521,13 @@ Rules:
 - Always address earnings risk if within 21 days.
 - Always comment on IV environment.
 - Reference the sector leader and beta if relevant.
+- If price is near a key technical level (50D SMA, 200D SMA, 52-week high/low), mention it explicitly.
 
 Reply with ONLY valid JSON:
 {{
   "direction": "bullish" | "bearish" | "unknown",
   "confidence": "high" | "medium" | "low",
-  "reasoning": "3-4 sentence analysis covering price action, key risks, IV environment, and sector context"
+  "reasoning": "3-4 sentence analysis covering price action, key technicals, IV environment, and sector context"
 }}"""
 
     import time
