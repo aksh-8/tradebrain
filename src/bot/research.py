@@ -22,6 +22,37 @@ _S = _get_settings()
 OLLAMA_URL = _S.ollama_url
 MODEL_NAME = _S.ollama_model
 
+# ---------------------------------------------------------------------------
+# Trusted and blocked news sources for article fetching
+# ---------------------------------------------------------------------------
+
+TRUSTED_SOURCES = {
+    "reuters.com",
+    "cnbc.com",
+    "marketwatch.com",
+    "fool.com",
+    "motleyfool.com",
+    "finance.yahoo.com",
+    "zacks.com",
+    "benzinga.com",
+    "stockanalysis.com",
+    "investopedia.com",
+    "thestreet.com",
+    "businesswire.com",
+    "prnewswire.com",   # press releases — primary source
+    "globenewswire.com",
+}
+
+BLOCKED_SOURCES = {
+    "bloomberg.com",
+    "wsj.com",
+    "ft.com",
+    "barrons.com",
+    "economist.com",
+    "nytimes.com",
+    "washingtonpost.com",
+}
+
 
 # ---------------------------------------------------------------------------
 # Price + technicals
@@ -123,21 +154,27 @@ def _get_unusual_options(ticker: str, price: float) -> Optional[str]:
 # News
 # ---------------------------------------------------------------------------
 
-def _get_news(ticker: str) -> tuple[Optional[str], Optional[str]]:
+def _get_news(ticker: str, deep: bool = False) -> tuple[Optional[str], Optional[str]]:
     """
     Returns (headlines_str, article_context_str).
-    headlines_str  — pipe-separated headlines for display
-    article_context_str — full text from top 2 articles for LLM
+    headlines_str       — pipe-separated headlines for display
+    article_context_str — full text from trusted articles for LLM
+
+    deep=False: fetch top 3 articles, max 10 DDG results (default, fast)
+    deep=True:  fetch top 5 articles, max 15 DDG results, longer text (thorough)
     """
     if not DDG_AVAILABLE:
         return None, None
     try:
         from bot.correlations import get_company_name
-        company = get_company_name(ticker) if len(ticker) <= 2 else None
-        query   = f"{ticker} {company} stock" if company else f"{ticker} stock"
+        company    = get_company_name(ticker) if len(ticker) <= 2 else None
+        query      = f"{ticker} {company} stock" if company else f"{ticker} stock"
+        ddg_limit  = 15 if deep else 10
+        art_limit  = 5  if deep else 3
+        word_limit = 600 if deep else 400
 
         with DDGS() as ddgs:
-            results = list(ddgs.news(query, max_results=6))
+            results = list(ddgs.news(query, max_results=ddg_limit))
 
         if not results:
             return None, None
@@ -145,18 +182,37 @@ def _get_news(ticker: str) -> tuple[Optional[str], Optional[str]]:
         headlines = [r.get("title", "") for r in results if r.get("title")]
         headlines_str = " | ".join(headlines[:5])
 
-        # fetch full text from top 2 articles
+        # filter to trusted sources only
+        def _is_trusted(r: dict) -> bool:
+            url = (r.get("url") or r.get("link") or "").lower()
+            source = (r.get("source") or "").lower()
+            # block paywalled sources
+            for blocked in BLOCKED_SOURCES:
+                if blocked in url or blocked in source:
+                    return False
+            # prefer trusted sources
+            for trusted in TRUSTED_SOURCES:
+                if trusted in url or trusted in source:
+                    return True
+            # allow unknown sources — better than no articles
+            return True
+
+        trusted_results = [r for r in results if _is_trusted(r)]
+
+        # fetch full text from top 3 trusted articles
+        # fetch full text from top N trusted articles
         article_texts: list[str] = []
-        for r in results[:2]:
+        for r in trusted_results[:art_limit]:
             url = r.get("url") or r.get("link") or ""
             if not url:
                 continue
-            text = _fetch_article_text(url)
+            text = _fetch_article_text(url, max_words=word_limit)
             if text:
                 source = r.get("source") or url
-                article_texts.append(f"[{source}]: {text}")
+                title  = r.get("title") or ""
+                article_texts.append(f"[{source}] {title}:\n{text}")
 
-        article_context = "\n\n".join(article_texts) if article_texts else None
+        article_context = "\n\n---\n\n".join(article_texts) if article_texts else None
         return headlines_str, article_context
 
     except Exception:
@@ -524,6 +580,7 @@ def research_ticker(
     thesis: Optional[str],
     budget: float,
     context_tickers: Optional[list[str]] = None,
+    deep: bool = False,
 ) -> ResearchResult:
     ticker = ticker.upper().strip()
 
@@ -563,7 +620,7 @@ def research_ticker(
     analyst_target, analyst_upside, analyst_rating = _get_analyst_data(ticker)
 
     # news
-    news_summary, article_context = _get_news(ticker)
+    news_summary, article_context = _get_news(ticker, deep=deep)
 
     # LLM thesis check
     verdict, reasoning, direction, confidence = _check_thesis(

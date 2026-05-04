@@ -722,6 +722,7 @@ def main() -> None:
     ap.add_argument("--budget",    type=float, default=300.0, help="Max cost per contract in USD (default 300)")
     ap.add_argument("--ticker",    help="Explicit ticker override")
     ap.add_argument("--direction", choices=["bullish", "bearish"], help="Force direction")
+    ap.add_argument("--deep", action="store_true", help="Fetch full articles for deeper LLM research (slower)")
     args = ap.parse_args()
 
     raw = args.input or args.ticker
@@ -771,9 +772,13 @@ def main() -> None:
 
     # run pipeline
     if len(intake.tickers) > 1:
-        with console.status(f"[cyan]Researching {len(intake.tickers)} tickers...[/cyan]", spinner="dots"):
+        with console.status(
+            f"[cyan]Researching {len(intake.tickers)} tickers (deep mode)...[/cyan]" if args.deep
+            else f"[cyan]Researching {len(intake.tickers)} tickers...[/cyan]",
+            spinner="dots"
+        ):
             from bot.engine import run_multi
-            results = run_multi(intake)
+            results = run_multi(intake, deep=args.deep)
 
         for research, picks, reason, direction_note, earnings_dte_note, pre_earnings_picks in results:
             _print_research(research)
@@ -793,8 +798,11 @@ def main() -> None:
             else:
                 _print_budget_warning(research.ticker, args.budget, reason)
     else:
-        with console.status("[cyan]Researching...[/cyan]", spinner="dots"):
-            research, picks, reason, direction_note, earnings_dte_note, pre_earnings_picks = run(intake)
+        with console.status(
+            "[cyan]Researching (deep mode)...[/cyan]" if args.deep else "[cyan]Researching...[/cyan]",
+            spinner="dots"
+        ):
+            research, picks, reason, direction_note, earnings_dte_note, pre_earnings_picks = run(intake, deep=args.deep)
         _print_research(research)
         if direction_note:
             console.print(f"\n  {direction_note}\n")
@@ -851,7 +859,7 @@ def main() -> None:
                 )
                 console.print(f"\n[dim]Retrying with budget ${suggested}...[/dim]\n")
                 with console.status("[cyan]Researching...[/cyan]", spinner="dots"):
-                    research2, picks2, reason2, direction_note2, earnings_dte_note2, pre_earnings_picks2 = run(new_intake)
+                    research2, picks2, reason2, direction_note2, earnings_dte_note2, pre_earnings_picks2 = run(new_intake, deep=args.deep)
                 if direction_note2:
                     console.print(f"\n  {direction_note2}\n")
                 if earnings_dte_note2:

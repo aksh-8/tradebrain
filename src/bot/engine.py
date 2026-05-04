@@ -179,7 +179,7 @@ def get_picks(
 # Public entry point
 # ---------------------------------------------------------------------------
 
-def run(intake: Intake) -> tuple[ResearchResult, list[Pick], str, Optional[str], Optional[str], list[Pick]]:
+def run(intake: Intake, deep: bool = False) -> tuple[ResearchResult, list[Pick], str, Optional[str], Optional[str], list[Pick]]:
     """
     Full pipeline:
       1. Research every ticker in intake
@@ -197,6 +197,7 @@ def run(intake: Intake) -> tuple[ResearchResult, list[Pick], str, Optional[str],
         thesis          = intake.thesis,
         budget          = intake.budget,
         context_tickers = list(intake.context_tickers),
+        deep            = deep,
     )
 
     # Step 2 — resolve direction
@@ -345,6 +346,7 @@ def _empty_research(ticker: str) -> ResearchResult:
 
 def run_multi(
     intake: Intake,
+    deep: bool = False,
 ) -> list[tuple[ResearchResult, list[Pick], str, Optional[str], Optional[str], list[Pick]]]:
     """
     Runs the full pipeline for every ticker in intake.
@@ -365,7 +367,7 @@ def run_multi(
             timeframe       = intake.timeframe,
             budget          = intake.budget,
         )
-        research, picks, reason, direction_note, earnings_dte_note, pre_earnings_picks = run(single_intake)
+        research, picks, reason, direction_note, earnings_dte_note, pre_earnings_picks = run(single_intake, deep=deep)
         results.append((research, picks, reason, direction_note, earnings_dte_note, pre_earnings_picks))
 
     # sort: confidence high > medium > low, then by picks count
