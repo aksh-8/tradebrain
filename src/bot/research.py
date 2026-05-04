@@ -123,20 +123,100 @@ def _get_unusual_options(ticker: str, price: float) -> Optional[str]:
 # News
 # ---------------------------------------------------------------------------
 
-def _get_news(ticker: str) -> Optional[str]:
+def _get_news(ticker: str) -> tuple[Optional[str], Optional[str]]:
+    """
+    Returns (headlines_str, article_context_str).
+    headlines_str  — pipe-separated headlines for display
+    article_context_str — full text from top 2 articles for LLM
+    """
     if not DDG_AVAILABLE:
-        return None
+        return None, None
     try:
-        # short tickers get company name appended to avoid generic news
         from bot.correlations import get_company_name
         company = get_company_name(ticker) if len(ticker) <= 2 else None
-        query = f"{ticker} {company} stock" if company else f"{ticker} stock"
+        query   = f"{ticker} {company} stock" if company else f"{ticker} stock"
+
         with DDGS() as ddgs:
             results = list(ddgs.news(query, max_results=6))
+
         if not results:
-            return None
+            return None, None
+
         headlines = [r.get("title", "") for r in results if r.get("title")]
-        return " | ".join(headlines[:5])
+        headlines_str = " | ".join(headlines[:5])
+
+        # fetch full text from top 2 articles
+        article_texts: list[str] = []
+        for r in results[:2]:
+            url = r.get("url") or r.get("link") or ""
+            if not url:
+                continue
+            text = _fetch_article_text(url)
+            if text:
+                source = r.get("source") or url
+                article_texts.append(f"[{source}]: {text}")
+
+        article_context = "\n\n".join(article_texts) if article_texts else None
+        return headlines_str, article_context
+
+    except Exception:
+        return None, None
+    
+    
+# ---------------------------------------------------------------------------
+# Article
+# ---------------------------------------------------------------------------
+    
+def _fetch_article_text(url: str, max_words: int = 400) -> Optional[str]:
+    """
+    Fetches full article text from a URL.
+    Returns first max_words words of body text, or None if fetch fails.
+    """
+    try:
+        import urllib.request
+        from html.parser import HTMLParser
+
+        class _TextExtractor(HTMLParser):
+            def __init__(self):
+                super().__init__()
+                self.text_parts: list[str] = []
+                self._skip = False
+
+            def handle_starttag(self, tag, attrs):
+                if tag in ("script", "style", "nav", "header", "footer"):
+                    self._skip = True
+
+            def handle_endtag(self, tag):
+                if tag in ("script", "style", "nav", "header", "footer"):
+                    self._skip = False
+
+            def handle_data(self, data):
+                if not self._skip:
+                    cleaned = data.strip()
+                    if len(cleaned) > 40:  # skip short fragments
+                        self.text_parts.append(cleaned)
+
+        req = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent": (
+                    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/120.0.0.0 Safari/537.36"
+                )
+            },
+        )
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            html = resp.read().decode("utf-8", errors="ignore")
+
+        extractor = _TextExtractor()
+        extractor.feed(html)
+
+        full_text = " ".join(extractor.text_parts)
+        words     = full_text.split()
+        trimmed   = " ".join(words[:max_words])
+        return trimmed if len(words) > 50 else None
+
     except Exception:
         return None
 
@@ -259,6 +339,7 @@ def _check_thesis(
     news_summary: Optional[str],
     thesis: Optional[str],
     context_tickers: Optional[list[str]] = None,
+    article_context: Optional[str] = None,
 ) -> tuple[Optional[str], Optional[str], Direction, str]:
 
     if not _ollama_available():
@@ -320,7 +401,8 @@ def _check_thesis(
 - Earnings:       {f'in {earnings_days_away} days' if earnings_days_away is not None else 'unknown'}
 - Analyst view:   {analyst_note or 'unavailable'}
 - Options flow:   {unusual_activity or 'nothing unusual'}
-- News:           {news_summary or 'none'}
+- News headlines: {news_summary or 'none'}
+- News detail:    {article_context or 'headlines only — no full articles available'}
 {context_note}
 {earnings_warning}
 
@@ -481,7 +563,7 @@ def research_ticker(
     analyst_target, analyst_upside, analyst_rating = _get_analyst_data(ticker)
 
     # news
-    news_summary = _get_news(ticker)
+    news_summary, article_context = _get_news(ticker)
 
     # LLM thesis check
     verdict, reasoning, direction, confidence = _check_thesis(
@@ -502,6 +584,7 @@ def research_ticker(
         news_summary       = news_summary,
         thesis             = thesis,
         context_tickers    = context_tickers or [],
+        article_context    = article_context,
     )
 
     skip_reason: Optional[str] = None
