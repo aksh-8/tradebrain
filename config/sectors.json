@@ -311,13 +311,15 @@
       "beta_to_leader": {
         "EOSE": 0.65,
         "CEG": 0.55,
-        "VST": 0.5
+        "VST": 0.5,
+        "MP": 0.77
       },
       "tickers": [
         "SMR",
         "EOSE",
         "CEG",
-        "VST"
+        "VST",
+        "MP"
       ],
       "correlated_sectors": [
         "ai_infra"
@@ -374,20 +376,27 @@
       "risk_note": "INOD is micro-cap with thin options liquidity. Options spreads will be wide. Treat any INOD options play as speculative - size at 1 contract maximum and expect relaxed filter picks. PLTR is the liquid proxy."
     },
     {
-        "slug": "fintech",
-        "name": "Fintech and financial platforms",
-        "leader": "COIN",
-        "leader_note": "COIN leads fintech sentiment. HOOD follows retail trading volume. SOFI is rate-sensitive.",
-        "tickers": ["HOOD", "COIN", "SOFI", "AFRM"],
-        "beta_to_leader": {
-            "HOOD": 0.67,
-            "SOFI": 0.46,
-            "AFRM": 1.2
-        },
-        "cross_sector_signals": [],
-        "correlated_sectors": ["crypto_miners"],
-        "macro_sensitivity": "high",
-        "risk_note": "Sensitive to crypto prices, interest rates, and retail trading volume"
+      "slug": "fintech",
+      "name": "Fintech and financial platforms",
+      "leader": "COIN",
+      "leader_note": "COIN leads fintech sentiment. HOOD follows retail trading volume. SOFI is rate-sensitive.",
+      "tickers": [
+        "HOOD",
+        "COIN",
+        "SOFI",
+        "AFRM"
+      ],
+      "beta_to_leader": {
+        "HOOD": 0.67,
+        "SOFI": 0.46,
+        "AFRM": 1.2
+      },
+      "cross_sector_signals": [],
+      "correlated_sectors": [
+        "crypto_miners"
+      ],
+      "macro_sensitivity": "high",
+      "risk_note": "Sensitive to crypto prices, interest rates, and retail trading volume"
     }
   ],
   "cross_sector_signals": [
@@ -513,6 +522,7 @@
     "robinhood markets, inc.": "HOOD",
     "sofi technologies, inc.": "SOFI",
     "nokia oyj": "NOK",
-    "nokia corporation sponsored": "NOK"
+    "nokia corporation sponsored": "NOK",
+    "mp materials corp.": "MP"
   }
 }

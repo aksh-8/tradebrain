@@ -34,7 +34,7 @@ _SECTOR_MAP: dict[str, str] = {
     "consumer cyclical":        "big_tech",
     "consumer defensive":       "big_tech",
     "industrials":              "robotics",
-    "basic materials":          "semis_compute",
+    "basic materials":          "energy_infra",
 }
 
 _INDUSTRY_MAP: dict[str, str] = {

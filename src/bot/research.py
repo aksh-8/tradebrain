@@ -396,6 +396,7 @@ def _check_thesis(
     thesis: Optional[str],
     context_tickers: Optional[list[str]] = None,
     article_context: Optional[str] = None,
+    technicals_block: Optional[str] = None,
 ) -> tuple[Optional[str], Optional[str], Direction, str]:
 
     if not _ollama_available():
@@ -452,7 +453,7 @@ def _check_thesis(
 - Price:          ${price:.2f}
 - 5-day change:   {f'{price_change_5d:+.1f}%' if price_change_5d is not None else 'unknown'}
 - 1-month change: {f'{price_change_1m:+.1f}%' if price_change_1m is not None else 'unknown'}
-- Technicals:     {sma_note or 'unavailable'}
+- Technicals:     {technicals_block or sma_note or 'unavailable'}
 - IV environment: {iv_note or 'unknown'}
 - Earnings:       {f'in {earnings_days_away} days' if earnings_days_away is not None else 'unknown'}
 - Analyst view:   {analyst_note or 'unavailable'}
@@ -600,7 +601,7 @@ def research_ticker(
     except ChainError:
         price = 0.0
 
-    history         = get_price_history(ticker, period="6mo")
+    history         = get_price_history(ticker, period="1y")
     price_change_5d = _price_change_pct(history, 5)
     price_change_1m = _price_change_pct(history, 21)
 
@@ -632,6 +633,11 @@ def research_ticker(
     # news
     news_summary, article_context = _get_news(ticker, deep=deep)
 
+    # compute full technical indicators
+    from bot.technicals import compute_technicals, format_technicals_for_llm
+    technicals      = compute_technicals(history)
+    technicals_block = format_technicals_for_llm(technicals)
+
     # LLM thesis check
     verdict, reasoning, direction, confidence = _check_thesis(
         ticker             = ticker,
@@ -652,6 +658,7 @@ def research_ticker(
         thesis             = thesis,
         context_tickers    = context_tickers or [],
         article_context    = article_context,
+        technicals_block   = technicals_block,
     )
 
     skip_reason: Optional[str] = None

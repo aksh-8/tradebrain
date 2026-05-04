@@ -66,7 +66,7 @@ def get_spot(ticker: str) -> float:
 
 def get_price_history(ticker: str, period: str = "3mo") -> list[dict]:
     """
-    Returns simplified price history for trend analysis.
+    Returns price history for trend analysis and technical indicators.
     period: 5d | 1mo | 3mo | 6mo | 1y
     """
     try:
@@ -74,7 +74,14 @@ def get_price_history(ticker: str, period: str = "3mo") -> list[dict]:
         if hist.empty:
             return []
         return [
-            {"date": str(idx.date()), "close": float(row["Close"]), "volume": int(row["Volume"])}
+            {
+                "date":   str(idx.date()),
+                "open":   float(row["Open"]),
+                "high":   float(row["High"]),
+                "low":    float(row["Low"]),
+                "close":  float(row["Close"]),
+                "volume": int(row["Volume"]),
+            }
             for idx, row in hist.iterrows()
         ]
     except Exception as e:
