@@ -367,7 +367,7 @@ def _evaluate_pick_quality(picks: list[Pick], research: ResearchResult, budget: 
             "1 contract maximum.[/green]\n"
         )
 
-def _print_kelly_sizing(picks: list[Pick], budget: float) -> None:
+def _print_kelly_sizing(picks: list[Pick], budget: float, bankroll_override: Optional[float] = None) -> None:
     """
     Shows Kelly position sizing for the best pick.
     Uses PoP from Black-Scholes already computed in select.py.
@@ -376,11 +376,10 @@ def _print_kelly_sizing(picks: list[Pick], budget: float) -> None:
     from bot.config import get_settings
     if not picks:
         return
-
     best = picks[0]
     if best.prob_profit is None:
         return
-    bankroll = get_settings().bankroll_usd
+    bankroll = bankroll_override if bankroll_override else get_settings().bankroll_usd
     k = kelly_size(
         pop      = best.prob_profit,
         cost     = best.cost,
@@ -723,6 +722,7 @@ def main() -> None:
     ap.add_argument("--ticker",    help="Explicit ticker override")
     ap.add_argument("--direction", choices=["bullish", "bearish"], help="Force direction")
     ap.add_argument("--deep", action="store_true", help="Fetch full articles for deeper LLM research (slower)")
+    ap.add_argument("--bankroll", type=float, help="Override bankroll for Kelly sizing (default: from .env BANKROLL_USD)")
     args = ap.parse_args()
 
     raw = args.input or args.ticker
@@ -788,7 +788,7 @@ def main() -> None:
                 console.print(f"\n  [yellow]DTE adjusted:[/yellow] [dim]{earnings_dte_note}[/dim]\n")
             if picks:
                 _print_picks(picks, args.budget)
-                _print_kelly_sizing(picks, args.budget)
+                _print_kelly_sizing(picks, args.budget, bankroll_override=getattr(args, 'bankroll', None))
                 if pre_earnings_picks:
                     _print_pre_earnings_picks(
                         pre_earnings_picks,
@@ -810,7 +810,7 @@ def main() -> None:
             console.print(f"\n  [yellow]DTE adjusted:[/yellow] [dim]{earnings_dte_note}[/dim]\n")
         if picks:
             _print_picks(picks, args.budget)
-            _print_kelly_sizing(picks, args.budget)
+            _print_kelly_sizing(picks, args.budget, bankroll_override=getattr(args, 'bankroll', None))
             if pre_earnings_picks:
                 _print_pre_earnings_picks(
                     pre_earnings_picks,
@@ -866,7 +866,7 @@ def main() -> None:
                     console.print(f"\n  [yellow]DTE adjusted:[/yellow] [dim]{earnings_dte_note2}[/dim]\n")
                 if picks2:
                     _print_picks(picks2, float(suggested))
-                    _print_kelly_sizing(picks2, float(suggested))
+                    _print_kelly_sizing(picks2, args.budget, bankroll_override=getattr(args, 'bankroll', None))
                     if pre_earnings_picks2:
                         _print_pre_earnings_picks(
                             pre_earnings_picks2,
