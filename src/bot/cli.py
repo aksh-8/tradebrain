@@ -402,6 +402,100 @@ def _print_kelly_sizing(picks: list[Pick], budget: float, bankroll_override: Opt
         f"  [{color}]{k['verdict']}[/{color}]\n"
     )
 
+def _print_contract_detail(
+    ticker: str,
+    contract,
+    side: str,
+    spot: float,
+    m: float,
+    cost: float,
+    dte_days: int,
+    greeks: dict,
+    used_last: bool,
+    target_exp: str,
+) -> None:
+    """
+    Shared contract display panel — used by _cmd_contract and _cmd_flow.
+    Shows: contract header, Greeks, breakeven, return targets, DTE warning.
+    """
+    iv_str     = f"{contract.iv*100:.0f}%" if contract.iv else "—"
+    price_src  = "last price [NO BID/ASK]" if used_last else "mid"
+    spread_str = (
+        f"{(contract.ask - contract.bid) / m * 100:.1f}%"
+        if contract.bid and contract.ask and contract.bid > 0 else "—"
+    )
+    otm_pct   = ((contract.strike - spot) / spot * 100) if side == "call" else ((spot - contract.strike) / spot * 100)
+    otm_label = f"{otm_pct:+.1f}% OTM" if otm_pct > 0 else f"{abs(otm_pct):.1f}% ITM"
+
+    lines = []
+    lines.append(f"[bold]Contract[/bold]    {ticker} ${contract.strike:g} {side.upper()} {target_exp}")
+    lines.append(f"[bold]DTE[/bold]         {dte_days} days")
+    lines.append(f"[bold]Strike[/bold]      {otm_label}  (spot ${spot:.2f})")
+    lines.append(f"[bold]Price[/bold]       ${m:.2f} ({price_src}) → cost ${cost:.0f}/contract")
+    if contract.ask:
+        lines.append(f"[bold]Ask[/bold]         ${contract.ask:.2f} (Robinhood execution price)")
+    lines.append(f"[bold]IV[/bold]          {iv_str}")
+    lines.append(f"[bold]Spread[/bold]      {spread_str}")
+    lines.append(f"[bold]OI[/bold]          {contract.oi or 0:,}   Volume {contract.volume or 0:,}")
+    lines.append("")
+
+    if greeks:
+        delta = greeks.get("delta")
+        theta = greeks.get("theta")
+        vega  = greeks.get("vega")
+        pop   = greeks.get("prob_profit")
+        gamma = greeks.get("gamma")
+
+        delta_color = "green" if delta and abs(delta) >= 0.40 else "yellow" if delta and abs(delta) >= 0.15 else "dim"
+        theta_color = "red" if theta and theta < -20 else "yellow" if theta and theta < -5 else "dim"
+        pop_color   = "green" if pop and pop >= 0.40 else "yellow" if pop and pop >= 0.25 else "red"
+
+        if delta:
+            lines.append(f"[bold]Delta[/bold]       [{delta_color}]{delta:+.3f}[/{delta_color}]  (contract moves ${delta*100:+.0f} per $1 {ticker} move)")
+        if gamma:
+            lines.append(f"[bold]Gamma[/bold]       {gamma:.4f}")
+        if theta:
+            lines.append(f"[bold]Theta[/bold]       [{theta_color}]${theta:.2f}/day[/{theta_color}]  (time decay cost)")
+        if vega:
+            lines.append(f"[bold]Vega[/bold]        ${vega:.2f} per 1pt IV move")
+        if pop:
+            lines.append(f"[bold]PoP[/bold]         [{pop_color}]{pop*100:.0f}%[/{pop_color}]  (probability of profit at expiry)")
+        lines.append("")
+
+    breakeven = contract.strike + m if side == "call" else contract.strike - m
+    be_pct    = (breakeven - spot) / spot * 100 if spot > 0 else 0
+    lines.append(f"[bold]Spot[/bold]        ${spot:.2f}")
+    lines.append(f"[bold]Breakeven[/bold]   ${breakeven:.2f}  ({be_pct:+.1f}% move needed)")
+    lines.append("")
+
+    if dte_days <= 5:
+        theta_val = greeks.get("theta", 0) or 0
+        lines.append(
+            f"[yellow]⚠ {dte_days} DTE — severe theta decay. "
+            f"Contract loses ~${abs(theta_val):.0f}/day. "
+            f"Only viable on immediate gap move.[/yellow]"
+        )
+        lines.append("")
+
+    lines.append("[bold]Return targets at expiry:[/bold]")
+    for mult, label in [(2, "2x "), (3, "3x "), (5, "5x "), (10, "10x")]:
+        target_val = m * mult
+        t_price    = contract.strike + target_val if side == "call" else contract.strike - target_val
+        t_pct      = (t_price - spot) / spot * 100 if spot > 0 else 0
+        lines.append(f"  {label} → {ticker} at ${t_price:.2f}  ({t_pct:+.1f}%)")
+    lines.append("")
+    lines.append(
+        "[dim]Note: these are expiry targets. You can exit early for profit "
+        "if momentum carries the contract value higher before expiry.[/dim]"
+    )
+
+    console.print(Panel(
+        "\n".join(l for l in lines if l is not None),
+        title=f"[bold cyan]{ticker} ${contract.strike:g} {side.upper()} — Contract Analysis[/bold cyan]",
+        border_style="cyan",
+        padding=(1, 2),
+    ))
+
 def _cmd_contract(args: argparse.Namespace) -> None:
     """
     tradebrain contract "INTC $150c 2026-06-18" --budget 200
@@ -532,25 +626,6 @@ def _cmd_contract(args: argparse.Namespace) -> None:
             premium = m,
         )
 
-    # --- compute targets ---
-    breakeven = contract.strike + m if side == "call" else contract.strike - m
-
-    def price_for_multiple(target_multiple: float) -> Optional[float]:
-        """What stock price gives this return multiple at expiry?"""
-        target_value = m * target_multiple
-        if side == "call":
-            return contract.strike + target_value
-        else:
-            return contract.strike - target_value
-
-    target_2x = price_for_multiple(2.0)
-    target_3x = price_for_multiple(3.0)
-    target_5x = price_for_multiple(5.0)
-    target_10x = price_for_multiple(10.0)
-
-    def pct_move(target_price: float) -> float:
-        return (target_price - spot) / spot * 100 if spot > 0 else 0
-
     # --- run research ---
     with console.status(f"[cyan]Researching {ticker}...[/cyan]", spinner="dots"):
         direction_word = "bearish downside" if side == "put" else "bullish upside"
@@ -578,88 +653,30 @@ def _cmd_contract(args: argparse.Namespace) -> None:
             )
 
     # --- display ---
-    # contract header
-    iv_str    = f"{contract.iv*100:.0f}%" if contract.iv else "—"
-    price_src = "last price [NO BID/ASK]" if used_last else "mid"
-    spread_str = (
-        f"{(contract.ask - contract.bid) / m * 100:.1f}%"
-        if contract.bid and contract.ask and contract.bid > 0 else "—"
-    )
-
-    lines = []
+    # over-budget notice
     if over_budget:
-        lines.append(
-            f"[yellow]⚠ Contract costs ${cost:.0f} — exceeds --budget ${args.budget:.0f}. "
-            f"Showing analysis anyway.[/yellow]"
+        console.print(
+            f"\n  [yellow]⚠ Contract costs ${cost:.0f} — exceeds --budget ${args.budget:.0f}. "
+            f"Showing analysis anyway.[/yellow]\n"
         )
-        lines.append("")
-    lines.append(f"[bold]Contract[/bold]    {ticker} ${contract.strike:g} {side.upper()} {target_exp}")
-    lines.append(f"[bold]DTE[/bold]         {dte_days} days")
-    lines.append(f"[bold]Price[/bold]       ${m:.2f} ({price_src}) → cost ${cost:.0f}/contract")
-    if contract.ask:
-        lines.append(f"[bold]Ask[/bold]         ${contract.ask:.2f} (Robinhood execution price)")
-    lines.append(f"[bold]IV[/bold]          {iv_str}")
-    lines.append(f"[bold]Spread[/bold]      {spread_str}")
+    
+    # earnings warning
     if earnings_warning:
-        lines.append("")
-        lines.append(earnings_warning)
-    lines.append(f"[bold]OI[/bold]          {contract.oi or 0:,}")
-    lines.append(f"[bold]Volume[/bold]      {contract.volume or 0:,}")
-    lines.append("")
+        console.print(earnings_warning)
+        console.print()
 
-    # Greeks
-    if greeks:
-        delta = greeks.get("delta")
-        theta = greeks.get("theta")
-        vega  = greeks.get("vega")
-        pop   = greeks.get("prob_profit")
-        gamma = greeks.get("gamma")
-
-        delta_color = "green" if delta and abs(delta) >= 0.40 else "yellow" if delta and abs(delta) >= 0.15 else "dim"
-        theta_color = "red" if theta and theta < -20 else "yellow" if theta and theta < -5 else "dim"
-        pop_color   = "green" if pop and pop >= 0.40 else "yellow" if pop and pop >= 0.25 else "red"
-
-        lines.append(f"[bold]Delta[/bold]       [{delta_color}]{delta:+.3f}[/{delta_color}]  "
-                     f"(contract moves ${delta*100:+.0f} per $1 {ticker} move)" if delta else "")
-        lines.append(f"[bold]Gamma[/bold]       {gamma:.4f}" if gamma else "")
-        lines.append(f"[bold]Theta[/bold]       [{theta_color}]${theta:.2f}/day[/{theta_color}]  "
-                     f"(time decay cost)" if theta else "")
-        lines.append(f"[bold]Vega[/bold]        ${vega:.2f} per 1pt IV move" if vega else "")
-        lines.append(f"[bold]PoP[/bold]         [{pop_color}]{pop*100:.0f}%[/{pop_color}]  "
-                     f"(probability of profit at expiry)" if pop else "")
-        lines.append("")
-
-    # targets
-    lines.append(f"[bold]Spot[/bold]        ${spot:.2f}")
-    lines.append(f"[bold]Breakeven[/bold]   ${breakeven:.2f}  "
-                 f"({pct_move(breakeven):+.1f}% move needed)")
-    lines.append("")
-    if dte_days <= 5:
-        lines.append(
-            f"[yellow]⚠ {dte_days} DTE — expiry targets assume you hold to expiration. "
-            f"With this little time, the contract will decay to zero rapidly. "
-            f"Only viable if a large gap move happens immediately.[/yellow]"
-        )
-        lines.append("")
-    lines.append("[bold]Return targets at expiry:[/bold]")
-    if target_2x:
-        lines.append(f"  2x  → {ticker} at ${target_2x:.2f}  ({pct_move(target_2x):+.1f}%)")
-    if target_3x:
-        lines.append(f"  3x  → {ticker} at ${target_3x:.2f}  ({pct_move(target_3x):+.1f}%)")
-    if target_5x:
-        lines.append(f"  5x  → {ticker} at ${target_5x:.2f}  ({pct_move(target_5x):+.1f}%)")
-    if target_10x:
-        lines.append(f"  10x → {ticker} at ${target_10x:.2f}  ({pct_move(target_10x):+.1f}%)")
-    lines.append("")
-    lines.append("[dim]Note: these are expiry targets. You can exit early for profit "
-                 "if momentum carries the contract value higher before expiry.[/dim]")
-
-    console.print(Panel(
-        "\n".join(l for l in lines if l is not None),
-        title=f"[bold cyan]{ticker} ${contract.strike:g} {side.upper()} — Contract Analysis[/bold cyan]",
-        border_style="cyan",
-        padding=(1, 2),
-    ))
+    _print_contract_detail(
+        ticker     = ticker,
+        contract   = contract,
+        side       = side,
+        spot       = spot,
+        m          = m,
+        cost       = cost,
+        dte_days   = dte_days,
+        greeks     = greeks,
+        used_last  = used_last,
+        target_exp = target_exp,
+    )
 
     # research summary
     _print_research(research)
@@ -695,6 +712,392 @@ def _cmd_contract(args: argparse.Namespace) -> None:
                 f"  [{color}]{k['verdict']}[/{color}]\n"
             )
 
+
+def _cmd_flow(args: argparse.Namespace) -> None:
+    """
+    tradebrain flow 'APLD $35c 470k 0DTE' --budget 500
+    tradebrain flow 'NVDA 230c 2.3M 2026-06-20' --budget 1000
+    tradebrain flow 'MU 600p 150k 30DTE' --budget 500
+
+    Parses an institutional flow alert, scales it to your budget,
+    fetches live contract data, Greeks, research, and Kelly sizing.
+    """
+    import re
+    from datetime import date, datetime, timedelta
+    from bot.chain_yf import get_expirations, get_chain, get_spot, ChainError
+    from bot.select import _effective_mid
+    from bot.bs import compute_greeks, kelly_size
+    from bot.config import get_settings
+    from bot.research import research_ticker
+
+    alert = args.alert.strip()
+
+    # -----------------------------------------------------------------------
+    # Parse the flow alert string
+    # -----------------------------------------------------------------------
+    # Ticker — first token, anchored
+    ticker_m = re.match(r'^([A-Z]{1,6})\s', alert.upper())
+
+    # Strike + side — optional $, digits, c/p/call/put
+    strike_m = re.search(r'\$?([\d.]+)\s*([CP](?:all|ut)?)\b', alert, re.IGNORECASE)
+
+    # Notional — 470k, 2.3M, 1.2B or plain number like 470000
+    notional_m = re.search(r'([\d.]+)\s*([KMB])\b', alert, re.IGNORECASE)
+    if not notional_m:
+        notional_m = re.search(r'\b([\d]{5,})\b', alert)  # bare number fallback
+
+    # Expiry — YYYY-MM-DD, 0DTE, 30DTE
+    date_m  = re.search(r'(\d{4}-\d{2}-\d{2})', alert)
+    dte_m   = re.search(r'\b(\d+)DTE\b', alert, re.IGNORECASE)
+
+    if not ticker_m or not strike_m:
+        console.print("[red]Could not parse flow alert.[/red]")
+        console.print(
+            "[dim]Supported formats (use single quotes):[/dim]\n"
+            "  [bold]tradebrain flow 'APLD 35c 470k 0DTE' --budget 500[/bold]\n"
+            "  [bold]tradebrain flow 'NVDA 230c 2.3M 2026-06-20' --budget 1000[/bold]\n"
+            "  [bold]tradebrain flow 'MU 600p 150k 30DTE' --budget 500[/bold]"
+        )
+        return
+
+    ticker   = ticker_m.group(1).upper()
+    strike   = float(strike_m.group(1))
+    side_raw = strike_m.group(2).lower()
+    side     = "call" if side_raw in ("c", "call") else "put"
+
+    # Parse notional to dollars
+    notional_usd: float = 0.0
+    if notional_m:
+        if notional_m.lastindex == 2:
+            val    = float(notional_m.group(1))
+            suffix = notional_m.group(2).upper()
+            multiplier = {"K": 1_000, "M": 1_000_000, "B": 1_000_000_000}
+            notional_usd = val * multiplier.get(suffix, 1)
+        else:
+            notional_usd = float(notional_m.group(1))
+
+    # Resolve expiry
+    today = date.today()
+    expiry: Optional[str] = None
+    if date_m:
+        expiry = date_m.group(1)
+    elif dte_m:
+        target_dte = int(dte_m.group(1))
+        expiry = (today + timedelta(days=target_dte)).strftime("%Y-%m-%d")
+    # if neither, expiry stays None — chain fetcher picks nearest
+
+    console.print(
+        f"\n[dim]Flow alert:[/dim] {ticker} ${strike:.2f} {side.upper()}  "
+        f"notional={'${:,.0f}'.format(notional_usd) if notional_usd else 'unknown'}  "
+        f"exp={expiry or 'nearest'}\n"
+    )
+
+    # -----------------------------------------------------------------------
+    # Fetch chain + live price
+    # -----------------------------------------------------------------------
+    with console.status(f"[cyan]Fetching {ticker} option chain...[/cyan]", spinner="dots"):
+        try:
+            exps = get_expirations(ticker)
+        except ChainError as e:
+            console.print(f"[red]Could not fetch expirations: {e}[/red]")
+            return
+
+        # resolve target expiry
+        target_exp: str
+        if expiry:
+            if expiry in exps:
+                target_exp = expiry
+            else:
+                target_dt = datetime.strptime(expiry, "%Y-%m-%d")
+                target_exp = min(exps, key=lambda e: abs(
+                    (datetime.strptime(e, "%Y-%m-%d") - target_dt).days
+                ))
+                console.print(f"[dim]Exact expiry not found, using closest: {target_exp}[/dim]")
+        else:
+            valid = [e for e in exps
+                     if (datetime.strptime(e, "%Y-%m-%d").date() - today).days > 0]
+            target_exp = valid[0] if valid else exps[0]
+
+        try:
+            chain = get_chain(ticker, target_exp)
+        except ChainError as e:
+            console.print(f"[red]Could not fetch chain: {e}[/red]")
+            return
+
+        matching = [c for c in chain if c.call_put == side]
+        if not matching:
+            console.print(f"[red]No {side} contracts found for {ticker} {target_exp}[/red]")
+            return
+
+        contract = min(matching, key=lambda c: abs(c.strike - strike))
+        if abs(contract.strike - strike) > 10:
+            console.print(
+                f"[yellow]Exact strike ${strike} not found. "
+                f"Using closest: ${contract.strike}[/yellow]"
+            )
+
+    with console.status("[cyan]Fetching live price...[/cyan]", spinner="dots"):
+        try:
+            spot = get_spot(ticker)
+        except ChainError:
+            spot = 0.0
+
+        m, used_last = _effective_mid(contract.bid, contract.ask, contract.last, True)
+        if m is None:
+            console.print("[red]No price data for this contract — market may be closed.[/red]")
+            return
+
+        cost = m * 100
+        dte_days = max(0, (
+            datetime.strptime(target_exp, "%Y-%m-%d").date() - today
+        ).days)
+
+    # -----------------------------------------------------------------------
+    # Flow classification
+    # -----------------------------------------------------------------------
+    otm_pct = ((strike - spot) / spot * 100) if side == "call" else ((spot - strike) / spot * 100)
+    inst_contracts = int(notional_usd / cost) if cost > 0 and notional_usd > 0 else 0
+
+    # Classify flow type using structural signals
+    # Institutions buy long-dated puts to hedge longs — that's not a bearish bet
+    # Short-dated OTM calls with large notional = directional sweep
+    if side == "call":
+        if dte_days <= 5:
+            flow_type = "AGGRESSIVE BULLISH SWEEP"
+            flow_color = "green"
+            flow_note = "Near-expiry call buying — high conviction directional bet on immediate move."
+        elif dte_days <= 30 and otm_pct > 0:
+            flow_type = "BULLISH SWEEP"
+            flow_color = "green"
+            flow_note = "Short-dated OTM calls — betting on upside move within weeks."
+        else:
+            flow_type = "BULLISH POSITION"
+            flow_color = "green"
+            flow_note = "Longer-dated call buying — directional or LEAPS-style position."
+    else:  # put
+        if dte_days >= 60 and notional_usd >= 500_000:
+            flow_type = "LIKELY HEDGE / PROTECTION"
+            flow_color = "yellow"
+            flow_note = "Long-dated large put — institutions use these to protect long stock positions. May NOT be a directional bearish bet."
+        elif dte_days <= 5:
+            flow_type = "AGGRESSIVE BEARISH SWEEP"
+            flow_color = "red"
+            flow_note = "Near-expiry put buying — high conviction bet on immediate downside or known catalyst."
+        else:
+            flow_type = "BEARISH SWEEP"
+            flow_color = "red"
+            flow_note = "Short-to-medium dated puts — directional downside bet."
+
+    # Block vs sweep by notional size
+    size_label = "BLOCK" if notional_usd >= 1_000_000 else "SWEEP"
+
+    # -----------------------------------------------------------------------
+    # Compute Greeks
+    # -----------------------------------------------------------------------
+    greeks: dict = {}
+    if contract.iv and contract.iv > 0 and spot > 0:
+        greeks = compute_greeks(
+            spot    = spot,
+            strike  = contract.strike,
+            dte     = dte_days,
+            iv      = contract.iv,
+            side    = side,
+            premium = m,
+        )
+
+    # -----------------------------------------------------------------------
+    # Run research
+    # -----------------------------------------------------------------------
+    with console.status(f"[cyan]Researching {ticker}...[/cyan]", spinner="dots"):
+        direction_word = "bearish downside" if side == "put" else "bullish upside"
+        research = research_ticker(
+            ticker          = ticker,
+            thesis          = (
+                f"Institutional flow alert: {direction_word} — "
+                f"${strike} {side} with {'${:,.0f}'.format(notional_usd) if notional_usd else 'large'} notional. "
+                f"Why would an institution place this bet? Is the thesis supported?"
+            ),
+            budget          = args.budget,
+            context_tickers = [],
+        )
+
+    # Override flow type if earnings are imminent — earnings plays are a
+    # distinct category from momentum sweeps and must be labeled differently
+    if research.earnings_days_away is not None and research.earnings_days_away <= 5:
+        if side == "call":
+            flow_type  = "EARNINGS CALL PLAY"
+            flow_color = "yellow"
+            flow_note  = (
+                f"Earnings in {research.earnings_days_away} days — "
+                f"betting on a positive earnings surprise, not a momentum sweep. "
+                f"IV crush will hit hard if the move disappoints."
+            )
+        else:
+            flow_type  = "EARNINGS PUT PLAY"
+            flow_color = "yellow"
+            flow_note  = (
+                f"Earnings in {research.earnings_days_away} days — "
+                f"betting on an earnings miss or disappointment. "
+                f"Could also be protective hedging ahead of the report."
+            )
+    
+    # -----------------------------------------------------------------------
+    # Earnings warning
+    # -----------------------------------------------------------------------
+    earnings_warning: Optional[str] = None
+    if research.earnings_days_away is not None and research.earnings_days_away > 0:
+        if research.earnings_days_away < dte_days:
+            earnings_warning = (
+                f"[bold red]⚠ EARNINGS IN {research.earnings_days_away} DAYS — "
+                f"contract spans the report.[/bold red]\n"
+                f"[red]Institutional flow into earnings is often a hedge, not a directional bet. "
+                f"IV crush will hit this contract hard post-report.[/red]"
+            )
+        elif research.earnings_days_away <= 7:
+            earnings_warning = (
+                f"[yellow]⚠ Earnings in {research.earnings_days_away} days — "
+                f"contract expires before report. Pure run-up / catalyst play.[/yellow]"
+            )
+
+    # -----------------------------------------------------------------------
+    # Display — Panel 1: Flow Summary
+    # -----------------------------------------------------------------------
+    iv_str     = f"{contract.iv*100:.0f}%" if contract.iv else "—"
+    price_src  = "last [NO BID/ASK]" if used_last else "mid"
+    spread_str = (
+        f"{(contract.ask - contract.bid) / m * 100:.1f}%"
+        if contract.bid and contract.ask and contract.bid > 0 else "—"
+    )
+    otm_label  = f"{otm_pct:+.1f}% OTM" if otm_pct > 0 else f"{abs(otm_pct):.1f}% ITM"
+
+    flow_lines = []
+    flow_lines.append(f"[bold]Ticker[/bold]       {ticker}  (spot ${spot:.2f})")
+    flow_lines.append(f"[bold]Contract[/bold]     ${contract.strike:g} {side.upper()}  exp={target_exp}  ({dte_days} DTE)")
+    flow_lines.append(f"[bold]Strike vs Spot[/bold]  {otm_label}")
+    flow_lines.append(f"[bold]Contract price[/bold]  ${m:.2f} ({price_src})  →  ${cost:.0f}/contract")
+    if contract.ask:
+        flow_lines.append(f"[bold]Ask[/bold]          ${contract.ask:.2f} (execution price)")
+    flow_lines.append(f"[bold]IV[/bold]           {iv_str}   Spread {spread_str}   OI {contract.oi or 0:,}   Vol {contract.volume or 0:,}")
+    flow_lines.append("")
+    if notional_usd > 0:
+        flow_lines.append(f"[bold]Notional[/bold]     [bold]{'${:,.0f}'.format(notional_usd)}[/bold]  ({size_label})")
+        if inst_contracts > 0:
+            flow_lines.append(f"[bold]Inst. contracts[/bold] ~{inst_contracts:,} contracts")
+    flow_lines.append("")
+    flow_lines.append(f"[bold]Flow type[/bold]    [{flow_color}][bold]{flow_type}[/bold][/{flow_color}]")
+    flow_lines.append(f"[dim]{flow_note}[/dim]")
+    if earnings_warning:
+        flow_lines.append("")
+        flow_lines.append(earnings_warning)
+
+    console.print(Panel(
+        "\n".join(flow_lines),
+        title=f"[bold magenta]{ticker} — Institutional Flow Alert[/bold magenta]",
+        border_style="magenta",
+        padding=(1, 2),
+    ))
+
+    # -----------------------------------------------------------------------
+    # Display — Panel 2: Scale to your budget
+    # -----------------------------------------------------------------------
+    if notional_usd > 0 and cost > 0:
+        user_contracts  = max(1, int(args.budget // cost))
+        user_notional   = user_contracts * cost
+        scale_ratio     = notional_usd / user_notional if user_notional > 0 else 0
+        pct_of_inst     = (user_notional / notional_usd * 100) if notional_usd > 0 else 0
+
+        scale_lines = []
+        scale_lines.append(
+            f"  Institution  [bold]{'${:,.0f}'.format(notional_usd)}[/bold]"
+            f"  →  ~{inst_contracts:,} contracts"
+        )
+        scale_lines.append(
+            f"  Your budget  [bold]${args.budget:.0f}[/bold]"
+            f"  →  {user_contracts} contract{'s' if user_contracts > 1 else ''}"
+            f"  (${user_notional:.0f})"
+        )
+        scale_lines.append("")
+        scale_lines.append(
+            f"  You are placing the [bold]same directional bet[/bold] at "
+            f"[bold]{pct_of_inst:.2f}%[/bold] of institutional size  "
+            f"(1 : {scale_ratio:,.0f} scale)"
+        )
+        scale_lines.append("")
+        scale_lines.append(
+            "[dim]Retail edge: you can exit faster and size down. "
+            "Institution may be hedging, averaging in, or have information you don't.[/dim]"
+        )
+
+        console.print(Panel(
+            "\n".join(scale_lines),
+            title="[bold]Scale — Your Position vs Institution[/bold]",
+            border_style="blue",
+            padding=(1, 2),
+        ))
+
+    _print_contract_detail(
+        ticker     = ticker,
+        contract   = contract,
+        side       = side,
+        spot       = spot,
+        m          = m,
+        cost       = cost,
+        dte_days   = dte_days,
+        greeks     = greeks,
+        used_last  = used_last,
+        target_exp = target_exp,
+    )
+
+    # -----------------------------------------------------------------------
+    # Research panel
+    # -----------------------------------------------------------------------
+    _print_research(research)
+
+    # contradiction warning — is the tape agreeing with the flow?
+    if side == "call" and research.thesis_verdict == "contradicted":
+        console.print(
+            "\n  [bold red]⚠ DATA CONTRADICTS this bullish flow — "
+            "institution may be hedging or wrong.[/bold red]\n"
+        )
+    elif side == "put" and research.thesis_verdict == "contradicted":
+        console.print(
+            "\n  [bold red]⚠ DATA CONTRADICTS this bearish flow — "
+            "strong bullish tape. Confirm this isn't a hedge.[/bold red]\n"
+        )
+
+    # -----------------------------------------------------------------------
+    # Suggested contracts for retail — ranked picks at user budget
+    # -----------------------------------------------------------------------
+    console.print(Panel(
+        "[dim]The flow above shows what the institution traded.\n"
+        "The picks below show what YOU should trade to express the same thesis "
+        "at your budget — better DTE, better liquidity, right size.[/dim]",
+        title="[bold green]Suggested Contracts — Your Trade[/bold green]",
+        border_style="green",
+        padding=(1, 2),
+    ))
+
+    with console.status("[cyan]Finding best contracts for your budget...[/cyan]", spinner="dots"):
+        from bot.engine import get_picks, _dte_window
+        dte_min, dte_max, _ = _dte_window(
+            "1-3 months",
+            earnings_days_away=research.earnings_days_away,
+        )
+        retail_picks, fail_reason = get_picks(
+            ticker     = ticker,
+            side       = side,
+            underlying = spot,
+            budget     = args.budget,
+            dte_min    = dte_min,
+            dte_max    = dte_max,
+        )
+
+    if retail_picks:
+        _print_picks(retail_picks, args.budget)
+        _print_kelly_sizing(retail_picks, args.budget,
+                            bankroll_override=args.bankroll if args.bankroll else None)
+    else:
+        _print_budget_warning(ticker, args.budget, fail_reason)
 
 def _cmd_history(args: argparse.Namespace) -> None:
     """
@@ -990,6 +1393,16 @@ def main() -> None:
         hist_ap.add_argument("--id",     type=int, help="Show full detail for a specific  run ID")
         hist_args = hist_ap.parse_args(sys.argv[2:])
         _cmd_history(hist_args)
+        return
+    
+    # route flow command
+    if len(sys.argv) > 1 and sys.argv[1] == "flow":
+        flow_ap = argparse.ArgumentParser(prog="tradebrain flow")
+        flow_ap.add_argument("alert", help="Flow alert e.g. 'APLD 35c 470k 0DTE'")
+        flow_ap.add_argument("--budget", type=float, default=500.0, help="Your budget to scale against the institutional notional")
+        flow_ap.add_argument("--bankroll", type=float, help="Override bankroll for Kelly sizing")
+        flow_args = flow_ap.parse_args(sys.argv[2:])
+        _cmd_flow(flow_args)
         return
 
     # route contract command
