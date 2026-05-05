@@ -67,7 +67,8 @@
     "HOOD",
     "SOFI",
     "NOK",
-    "MP"
+    "MP",
+    "SNDK"
   ],
   "proxies": {
     "SPY": "IWM",

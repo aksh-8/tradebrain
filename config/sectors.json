@@ -130,7 +130,8 @@
         "AMZN": 0.75,
         "AAPL": 0.5,
         "TSLA": 0.4,
-        "NOK": 0.1
+        "NOK": 0.1,
+        "SNDK": 0.17
       },
       "tickers": [
         "MSFT",
@@ -139,7 +140,8 @@
         "AMZN",
         "AAPL",
         "TSLA",
-        "NOK"
+        "NOK",
+        "SNDK"
       ],
       "correlated_sectors": [
         "semis_compute",
@@ -523,6 +525,7 @@
     "sofi technologies, inc.": "SOFI",
     "nokia oyj": "NOK",
     "nokia corporation sponsored": "NOK",
-    "mp materials corp.": "MP"
+    "mp materials corp.": "MP",
+    "sandisk corporation": "SNDK"
   }
 }
