@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import argparse
 import sys
 
@@ -1401,7 +1402,10 @@ def main() -> None:
         flow_ap.add_argument("alert", help="Flow alert e.g. 'APLD 35c 470k 0DTE'")
         flow_ap.add_argument("--budget", type=float, default=500.0, help="Your budget to scale against the institutional notional")
         flow_ap.add_argument("--bankroll", type=float, help="Override bankroll for Kelly sizing")
+        flow_ap.add_argument("--llm",      choices=["gemini", "ollama"], default=None, help="Override LLM provider")
         flow_args = flow_ap.parse_args(sys.argv[2:])
+        if flow_args.llm:
+            os.environ["LLM_PROVIDER"] = flow_args.llm
         _cmd_flow(flow_args)
         return
 
@@ -1411,7 +1415,10 @@ def main() -> None:
         contract_ap.add_argument("spec", help='Contract spec e.g. "INTC $150c 2026-06-18"')
         contract_ap.add_argument("--budget", type=float, default=300.0, help="Used for Kelly sizing context only — contract is shown regardless of cost")
         contract_ap.add_argument("--bankroll", type=float, help="Override bankroll for Kelly sizing")
+        contract_ap.add_argument("--llm",      choices=["gemini", "ollama"], default=None, help="Override LLM provider")
         contract_args = contract_ap.parse_args(sys.argv[2:])
+        if contract_args.llm:
+            os.environ["LLM_PROVIDER"] = contract_args.llm
         _cmd_contract(contract_args)
         return
     
@@ -1420,7 +1427,10 @@ def main() -> None:
         watch_ap = argparse.ArgumentParser(prog="tradebrain watch")
         watch_ap.add_argument("--budget",    type=float, help="Override default budget from watchlist.json")
         watch_ap.add_argument("--direction", choices=["bullish", "bearish"], help="Force direction for all tickers")
+        watch_ap.add_argument("--llm",       choices=["gemini", "ollama"], default=None, help="Override LLM provider")
         watch_args = watch_ap.parse_args(sys.argv[2:])
+        if watch_args.llm:
+            os.environ["LLM_PROVIDER"] = watch_args.llm
         _cmd_watch(watch_args)
         return
 
@@ -1440,7 +1450,12 @@ def main() -> None:
     ap.add_argument("--direction", choices=["bullish", "bearish"], help="Force direction")
     ap.add_argument("--deep", action="store_true", help="Fetch full articles for deeper LLM research (slower)")
     ap.add_argument("--bankroll", type=float, help="Override bankroll for Kelly sizing (default: from .env BANKROLL_USD)")
+    ap.add_argument("--llm", choices=["gemini", "ollama"], default=None, help="Override LLM provider for this run: gemini or ollama (default: LLM_PROVIDER from .env)")
     args = ap.parse_args()
+
+    # LLM provider override — takes effect before any research calls
+    if args.llm:
+        os.environ["LLM_PROVIDER"] = args.llm
 
     raw = args.input or args.ticker
     if not raw:
