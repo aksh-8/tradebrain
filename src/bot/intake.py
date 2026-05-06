@@ -128,20 +128,24 @@ Rules:
 - thesis: clean summary of why this trade, null if just a ticker with no reasoning
 """
 
+    from bot.research import _gemini_available, _call_gemini
     import time
     for attempt in range(2):
         try:
-            r = requests.post(
-                OLLAMA_URL,
-                json={
-                    "model": MODEL_NAME,
-                    "prompt": prompt,
-                    "stream": False,
-                    "options": {"temperature": 0},
-                },
-                timeout=30,
-            )
-            raw_resp = r.json().get("response", "").strip()
+            if _gemini_available():
+                raw_resp = _call_gemini(prompt)
+            else:
+                r = requests.post(
+                    OLLAMA_URL,
+                    json={
+                        "model": MODEL_NAME,
+                        "prompt": prompt,
+                        "stream": False,
+                        "options": {"temperature": 0},
+                    },
+                    timeout=30,
+                )
+                raw_resp = r.json().get("response", "").strip()
 
             # retry once on cold start empty response
             if not raw_resp and attempt == 0:
@@ -241,7 +245,8 @@ def parse_intake(raw: str, budget: float) -> Intake:
     """
     raw = raw.strip()
 
-    if _ollama_available():
+    from bot.research import _gemini_available
+    if _gemini_available() or _ollama_available():
         result = _llm_parse(raw, budget)
         if result and result.tickers:
             return result

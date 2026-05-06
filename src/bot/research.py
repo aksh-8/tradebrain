@@ -376,6 +376,30 @@ def _ollama_available() -> bool:
     except Exception:
         return False
 
+# ---------------------------------------------------------------------------
+# Gemini
+# ---------------------------------------------------------------------------
+
+def _gemini_available() -> bool:
+    from bot.config import get_settings
+    s = get_settings()
+    return s.llm_provider == "gemini" and bool(s.gemini_api_key)
+
+
+def _call_gemini(prompt: str) -> str:
+    """
+    Calls Gemini 2.0 Flash and returns the raw text response.
+    Raises on HTTP error or empty response.
+    """
+    from google import genai
+    from bot.config import get_settings
+    api_key = get_settings().gemini_api_key
+    client = genai.Client(api_key=api_key)
+    response = client.models.generate_content(
+        model    = "gemini-2.5-flash",
+        contents = prompt,
+    )
+    return response.text
 
 def _check_thesis(
     ticker: str,
@@ -399,8 +423,10 @@ def _check_thesis(
     technicals_block: Optional[str] = None,
 ) -> tuple[Optional[str], Optional[str], Direction, str]:
 
-    if not _ollama_available():
-        return None, "Ollama not running — thesis check skipped", "unknown", "low"
+    use_gemini = _gemini_available()
+    use_ollama = not use_gemini and _ollama_available()
+    if not use_gemini and not use_ollama:
+        return None, "No LLM available — set LLM_PROVIDER=gemini + GEMINI_API_KEY or run Ollama", "unknown", "low"
 
     # sector context
     try:
@@ -534,17 +560,20 @@ Reply with ONLY valid JSON:
     import time
     for attempt in range(2):
         try:
-            r = requests.post(
-                OLLAMA_URL,
-                json={
-                    "model":   MODEL_NAME,
-                    "prompt":  prompt,
-                    "stream":  False,
-                    "options": {"temperature": 0, "top_p": 1},
-                },
-                timeout=_S.ollama_timeout,
-            )
-            raw = r.json().get("response", "").strip()
+            if use_gemini:
+                raw = _call_gemini(prompt)
+            else:
+                r = requests.post(
+                    OLLAMA_URL,
+                    json={
+                        "model":   MODEL_NAME,
+                        "prompt":  prompt,
+                        "stream":  False,
+                        "options": {"temperature": 0, "top_p": 1},
+                    },
+                    timeout=_S.ollama_timeout,
+                )
+                raw = r.json().get("response", "").strip()
 
             # retry once on cold start empty response
             if not raw and attempt == 0:
