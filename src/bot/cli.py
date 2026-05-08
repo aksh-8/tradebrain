@@ -1067,16 +1067,44 @@ def _cmd_flow(args: argparse.Namespace) -> None:
         )
 
     # -----------------------------------------------------------------------
+    # Smart side flip — if LLM strongly contradicts the flow direction,
+    # show contracts in the opposite direction as the retail recommendation
+    # -----------------------------------------------------------------------
+    retail_side = side  # default: follow the institutional flow direction
+    side_flipped = False
+
+    if research.recommended_direction in ("bearish", "bullish"):
+        flow_is_bullish = side == "call"
+        data_is_bullish = research.recommended_direction == "bullish"
+        if flow_is_bullish != data_is_bullish and research.confidence == "high":
+            retail_side = "put" if flow_is_bullish else "call"
+            side_flipped = True
+
+    # -----------------------------------------------------------------------
     # Suggested contracts for retail — ranked picks at user budget
     # -----------------------------------------------------------------------
-    console.print(Panel(
-        "[dim]The flow above shows what the institution traded.\n"
-        "The picks below show what YOU should trade to express the same thesis "
-        "at your budget — better DTE, better liquidity, right size.[/dim]",
-        title="[bold green]Suggested Contracts — Your Trade[/bold green]",
-        border_style="green",
-        padding=(1, 2),
-    ))
+    if side_flipped:
+        console.print(Panel(
+            f"[bold red]⚠ HIGH CONFIDENCE CONTRA-FLOW SIGNAL[/bold red]\n"
+            f"[red]Data strongly disagrees with the institutional direction.\n"
+            f"Showing [bold]{retail_side.upper()}[/bold] contracts instead — "
+            f"the tape says fade this flow.[/red]\n\n"
+            f"[dim]The flow above shows what the institution traded.\n"
+            f"The picks below reflect what the DATA supports — "
+            f"the opposite direction.[/dim]",
+            title="[bold red]Contra-Flow — Fade This Trade[/bold red]",
+            border_style="red",
+            padding=(1, 2),
+        ))
+    else:
+        console.print(Panel(
+            "[dim]The flow above shows what the institution traded.\n"
+            "The picks below show what YOU should trade to express the same thesis "
+            "at your budget — better DTE, better liquidity, right size.[/dim]",
+            title="[bold green]Suggested Contracts — Your Trade[/bold green]",
+            border_style="green",
+            padding=(1, 2),
+        ))
 
     with console.status("[cyan]Finding best contracts for your budget...[/cyan]", spinner="dots"):
         from bot.engine import get_picks, _dte_window
@@ -1086,7 +1114,7 @@ def _cmd_flow(args: argparse.Namespace) -> None:
         )
         retail_picks, fail_reason = get_picks(
             ticker     = ticker,
-            side       = side,
+            side       = retail_side,
             underlying = spot,
             budget     = args.budget,
             dte_min    = dte_min,
