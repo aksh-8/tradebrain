@@ -1128,6 +1128,501 @@ def _cmd_flow(args: argparse.Namespace) -> None:
     else:
         _print_budget_warning(ticker, args.budget, fail_reason)
 
+def _is_market_open() -> bool:
+    """Returns True if US market is currently open (9:30am-4pm ET, Mon-Fri)."""
+    from datetime import datetime, timezone, timedelta
+    # ET is UTC-5 (EST) or UTC-4 (EDT). Use UTC-4 as approximation (EDT).
+    et_offset = timedelta(hours=-4)
+    now_et = datetime.now(timezone.utc) + et_offset
+    if now_et.weekday() >= 5:  # Saturday=5, Sunday=6
+        return False
+    market_open  = now_et.replace(hour=9,  minute=30, second=0, microsecond=0)
+    market_close = now_et.replace(hour=16, minute=0,  second=0, microsecond=0)
+    return market_open <= now_et <= market_close
+
+# ---------------------------------------------------------------------------
+# Paper trading commands
+# ---------------------------------------------------------------------------
+
+def _fetch_live_contract_price(
+    ticker: str,
+    strike: float,
+    side: str,
+    expiry: str,
+) -> tuple[Optional[float], bool]:
+    """
+    Fetches the current mid price for a contract from yfinance.
+    Returns (mid_price_dollars, used_last_price).
+    used_last_price=True means market is closed — price may be stale.
+    """
+    from bot.chain_yf import get_chain, ChainError
+    from bot.select import _effective_mid
+    try:
+        chain = get_chain(ticker, expiry)
+        matching = [c for c in chain if c.call_put == side]
+        if not matching:
+            return None, False
+        contract = min(matching, key=lambda c: abs(c.strike - strike))
+        m, used_last = _effective_mid(contract.bid, contract.ask, contract.last, True)
+        if m is None:
+            return None, False
+        return m * 100, used_last  # return dollars per contract
+    except (ChainError, Exception):
+        return None, False
+
+
+def _cmd_log_trade(args: argparse.Namespace) -> None:
+    """
+    tradebrain log-trade NVDA --strike 235 --expiry 2026-06-18 --side call --quantity 1 --paper --source "tradebrain"
+    tradebrain log-trade NVDA --strike 235 --expiry 2026-06-18 --side call --quantity 1 --real --source "tradebrain"
+    """
+    from bot.logger import log_paper_trade
+
+    ticker = args.ticker.upper().strip()
+    strike = args.strike
+    side   = args.side.lower()
+    expiry = args.expiry
+    qty    = args.quantity
+    source = args.source or "own research"
+    thesis = args.thesis
+
+    trade_type = "real" if args.real else "paper"
+
+    # -----------------------------------------------------------------------
+    # Entry price — real: prompt user, paper: fetch live from yfinance
+    # -----------------------------------------------------------------------
+    if args.real:
+        # Real trade — user enters exact Robinhood execution price
+        console.print(
+            f"\n  [bold]Real trade:[/bold] {ticker} ${strike:g} {side.upper()} "
+            f"exp={expiry}  qty={qty}\n"
+        )
+        try:
+            raw = console.input(
+                "  [bold cyan]What did you pay on Robinhood? "
+                "Enter contract price (e.g. 4.10): [/bold cyan]"
+            ).strip()
+            entry_cost = float(raw) * 100
+            console.print(f"  [dim]${float(raw):.2f} × 100 = ${entry_cost:.2f}/contract[/dim]\n")
+        except (ValueError, KeyboardInterrupt):
+            console.print("[red]Invalid price. Trade not logged.[/red]")
+            return
+
+        if entry_cost <= 0:
+            console.print("[red]Price must be greater than 0. Trade not logged.[/red]")
+            return
+
+    else:
+        # Paper trade — fetch live mid price automatically
+        console.print(
+            f"\n  [bold]Paper trade:[/bold] {ticker} ${strike:g} {side.upper()} "
+            f"exp={expiry}  qty={qty}\n"
+        )
+        with console.status(
+            f"[cyan]Fetching live price for {ticker} ${strike:g} {side.upper()}...[/cyan]",
+            spinner="dots"
+        ):
+            entry_cost, used_last = _fetch_live_contract_price(
+                ticker, strike, side, expiry
+            )
+
+        if entry_cost is None:
+            console.print(
+                f"[red]Could not fetch live price for {ticker} ${strike:g} {side.upper()} "
+                f"exp={expiry}.\n"
+                f"Check ticker, strike, and expiry are correct.[/red]"
+            )
+            return
+
+        if not _is_market_open():
+            console.print(
+                f"  [yellow]⚠ Market is closed — using last traded price "
+                f"${entry_cost:.2f}/contract (may differ from tomorrow's open).\n"
+                f"  Consider re-logging at market open for accuracy.[/yellow]\n"
+            )
+        else:
+            console.print(
+                f"  [green]✓ Live mid price fetched: "
+                f"${entry_cost:.2f}/contract[/green]\n"
+            )
+
+    # -----------------------------------------------------------------------
+    # Log the trade
+    # -----------------------------------------------------------------------
+    total = entry_cost * qty
+    trade_id = log_paper_trade(
+        ticker     = ticker,
+        strike     = strike,
+        side       = side,
+        expiry     = expiry,
+        entry_cost = entry_cost,
+        quantity   = qty,
+        trade_type = trade_type,
+        source     = source,
+        thesis     = thesis,
+    )
+
+    type_color = "green" if trade_type == "real" else "blue"
+    console.print(Panel(
+        f"  [bold]ID[/bold]           #{trade_id}\n"
+        f"  [bold]Type[/bold]         [{type_color}]{trade_type.upper()}[/{type_color}]\n"
+        f"  [bold]Contract[/bold]     {ticker} ${strike:g} {side.upper()} exp={expiry}\n"
+        f"  [bold]Entry price[/bold]  ${entry_cost:.2f}/contract\n"
+        f"  [bold]Quantity[/bold]     {qty} contract{'s' if qty > 1 else ''}\n"
+        f"  [bold]Total invested[/bold]  ${total:.2f}\n"
+        f"  [bold]Source[/bold]       {source}\n"
+        + (f"  [bold]Thesis[/bold]       {thesis}\n" if thesis else ""),
+        title=f"[bold {'green' if trade_type == 'real' else 'blue'}]"
+              f"Trade Logged — #{trade_id}[/bold {'green' if trade_type == 'real' else 'blue'}]",
+        border_style="green" if trade_type == "real" else "blue",
+        padding=(1, 2),
+    ))
+    console.print(
+        f"  [dim]Track with: [bold]tradebrain portfolio[/bold]  |  "
+        f"Close with: [bold]tradebrain close-trade {trade_id} --exit-cost PRICE[/bold][/dim]\n"
+    )
+
+
+def _cmd_portfolio(args: argparse.Namespace) -> None:
+    """
+    tradebrain portfolio           — open positions with live P&L
+    tradebrain portfolio --all     — open + closed history
+    tradebrain portfolio --real    — real trades only
+    tradebrain portfolio --paper   — paper trades only
+    """
+    from bot.logger import get_open_trades, get_all_trades
+    from datetime import date, datetime
+
+    if args.all:
+        trades = get_all_trades()
+    else:
+        trades = get_open_trades()
+
+    # filter by type
+    if args.real and not args.paper:
+        trades = [t for t in trades if t["trade_type"] == "real"]
+    elif args.paper and not args.real:
+        trades = [t for t in trades if t["trade_type"] == "paper"]
+
+    if not trades:
+        console.print(Panel(
+            "[dim]No trades logged yet.\n\n"
+            "Log your first trade with:\n"
+            "  [bold]tradebrain log-trade NVDA --strike 235 --expiry 2026-06-18 "
+            "--side call --quantity 1 --paper --source \"tradebrain\"[/bold][/dim]",
+            title="[bold]Portfolio — No Trades[/bold]",
+            border_style="dim",
+            padding=(1, 2),
+        ))
+        return
+
+    open_trades   = [t for t in trades if t["status"] == "open"]
+    closed_trades = [t for t in trades if t["status"] in ("closed", "expired")]
+
+    today = date.today()
+
+    # -----------------------------------------------------------------------
+    # Fetch live prices for open trades
+    # -----------------------------------------------------------------------
+    live_prices: dict[int, Optional[float]] = {}
+    stale_ids:   set[int]                   = set()
+
+    market_open = _is_market_open()
+
+    if open_trades:
+        with console.status(
+            "[cyan]Fetching live prices for open positions...[/cyan]",
+            spinner="dots"
+        ):
+            for t in open_trades:
+                price, used_last = _fetch_live_contract_price(
+                    t["ticker"], t["strike"], t["side"], t["expiry"]
+                )
+                live_prices[t["id"]] = price
+                if not market_open:
+                    stale_ids.add(t["id"])
+
+    # -----------------------------------------------------------------------
+    # Open positions table
+    # -----------------------------------------------------------------------
+    total_invested_open = 0.0
+    total_pnl_open      = 0.0
+    
+    if open_trades:
+        open_table = Table(
+            box=box.SIMPLE_HEAD,
+            show_header=True,
+            header_style="bold cyan",
+            padding=(0, 1),
+        )
+        open_table.add_column("ID",     style="dim", width=4)
+        open_table.add_column("Type",   justify="center", width=6)
+        open_table.add_column("Ticker", justify="center")
+        open_table.add_column("Strike", justify="right")
+        open_table.add_column("Side",   justify="center")
+        open_table.add_column("Expiry", justify="center")
+        open_table.add_column("DTE",    justify="right")
+        open_table.add_column("Qty",    justify="right")
+        open_table.add_column("Entry",  justify="right")
+        open_table.add_column("Now",    justify="right")
+        open_table.add_column("P&L",    justify="right")
+        open_table.add_column("%",      justify="right")
+        open_table.add_column("Source", justify="left")
+
+        for t in open_trades:
+            exp_date  = datetime.strptime(t["expiry"], "%Y-%m-%d").date()
+            dte       = max(0, (exp_date - today).days)
+            dte_color = "red" if dte <= 5 else "yellow" if dte <= 14 else "dim"
+
+            now_price = live_prices.get(t["id"])
+            type_color = "green" if t["trade_type"] == "real" else "blue"
+
+            if now_price is not None:
+                pnl_dollars = (now_price - t["entry_cost"]) * t["quantity"]
+                pnl_pct     = pnl_dollars / t["total_invested"] * 100
+                pnl_color   = "green" if pnl_dollars >= 0 else "red"
+                now_str     = f"${now_price:.2f}"
+                if t["id"] in stale_ids:
+                    now_str += "[dim]*[/dim]"
+                pnl_str  = f"[{pnl_color}]{'+' if pnl_dollars >= 0 else ''}${pnl_dollars:.0f}[/{pnl_color}]"
+                pct_str  = f"[{pnl_color}]{'+' if pnl_pct >= 0 else ''}{pnl_pct:.0f}%[/{pnl_color}]"
+                total_pnl_open += pnl_dollars
+            else:
+                now_str = "[dim]—[/dim]"
+                pnl_str = "[dim]—[/dim]"
+                pct_str = "[dim]—[/dim]"
+
+            total_invested_open += t["total_invested"]
+
+            source_short = (t["source"] or "")[:18]
+
+            type_label = "REAL" if t["trade_type"] == "real" else "PAPR"
+            open_table.add_row(
+                str(t["id"]),
+                f"[{type_color}]{type_label}[/{type_color}]",
+                t["ticker"],
+                f"${t['strike']:g}",
+                t["side"],
+                t["expiry"],
+                f"[{dte_color}]{dte}d[/{dte_color}]",
+                str(t["quantity"]),
+                f"${t['entry_cost']:.2f}",
+                now_str,
+                pnl_str,
+                pct_str,
+                source_short,
+            )
+
+        pnl_color_total = "green" if total_pnl_open >= 0 else "red"
+        console.print(Panel(
+            open_table,
+            title="[bold]Open Positions[/bold]",
+            border_style="cyan",
+            padding=(1, 1),
+        ))
+        if stale_ids:
+            console.print(
+                "  [dim]* Market closed — using last traded price. "
+                "P&L estimates may be inaccurate.[/dim]"
+            )
+
+    # -----------------------------------------------------------------------
+    # Closed positions table
+    # -----------------------------------------------------------------------
+    if closed_trades:
+        closed_table = Table(
+            box=box.SIMPLE_HEAD,
+            show_header=True,
+            header_style="bold dim",
+            padding=(0, 1),
+        )
+        closed_table.add_column("ID",     style="dim", width=4)
+        closed_table.add_column("Type",   justify="center", width=6)
+        closed_table.add_column("Ticker", justify="center")
+        closed_table.add_column("Strike", justify="right")
+        closed_table.add_column("Side",   justify="center")
+        closed_table.add_column("Expiry", justify="center")
+        closed_table.add_column("Qty",    justify="right")
+        closed_table.add_column("Entry",  justify="right")
+        closed_table.add_column("Exit",   justify="right")
+        closed_table.add_column("P&L",    justify="right")
+        closed_table.add_column("%",      justify="right")
+        closed_table.add_column("Status", justify="center")
+        closed_table.add_column("Source", justify="left")
+
+        for t in closed_trades:
+            pnl_dollars = t.get("pnl_dollars") or 0
+            pnl_pct     = t.get("pnl_pct") or 0
+            pnl_color   = "green" if pnl_dollars >= 0 else "red"
+            type_color  = "green" if t["trade_type"] == "real" else "blue"
+            status_color = "dim" if t["status"] == "expired" else "cyan"
+            source_short = (t["source"] or "")[:18]
+
+            closed_table.add_row(
+                str(t["id"]),
+                f"[{type_color}]{'REAL' if t['trade_type'] == 'real' else 'PAPR'}[/{type_color}]",
+                t["ticker"],
+                f"${t['strike']:g}",
+                t["side"],
+                t["expiry"],
+                str(t["quantity"]),
+                f"${t['entry_cost']:.2f}",
+                f"${t['exit_cost']:.2f}" if t.get("exit_cost") is not None else "—",
+                f"[{pnl_color}]{'+' if pnl_dollars >= 0 else ''}${pnl_dollars:.0f}[/{pnl_color}]",
+                f"[{pnl_color}]{'+' if pnl_pct >= 0 else ''}{pnl_pct:.0f}%[/{pnl_color}]",
+                f"[{status_color}]{t['status']}[/{status_color}]",
+                source_short,
+            )
+
+        console.print(Panel(
+            closed_table,
+            title="[bold dim]Closed Positions[/bold dim]",
+            border_style="dim",
+            padding=(1, 1),
+        ))
+
+    # -----------------------------------------------------------------------
+    # Summary
+    # -----------------------------------------------------------------------
+    all_closed    = get_all_trades() if not args.all else trades
+    closed_only   = [t for t in all_closed if t["status"] in ("closed", "expired")]
+    wins          = [t for t in closed_only if (t.get("pnl_dollars") or 0) > 0]
+    losses        = [t for t in closed_only if (t.get("pnl_dollars") or 0) <= 0]
+    win_rate      = f"{len(wins)}/{len(closed_only)} ({len(wins)/len(closed_only)*100:.0f}%)" if closed_only else "—"
+
+    # breakdown by source
+    sources: dict[str, dict] = {}
+    for t in closed_only:
+        src = (t.get("source") or "own research").split()[0][:12]
+        if src not in sources:
+            sources[src] = {"W": 0, "L": 0}
+        if (t.get("pnl_dollars") or 0) > 0:
+            sources[src]["W"] += 1
+        else:
+            sources[src]["L"] += 1
+
+    source_str = "  ".join(
+        f"{k}: {v['W']}W/{v['L']}L" for k, v in sources.items()
+    ) if sources else "—"
+
+    real_closed   = [t for t in closed_only if t["trade_type"] == "real"]
+    paper_closed  = [t for t in closed_only if t["trade_type"] == "paper"]
+    real_pnl      = sum(t.get("pnl_dollars") or 0 for t in real_closed)
+    paper_pnl     = sum(t.get("pnl_dollars") or 0 for t in paper_closed)
+
+    open_pnl_color = "green" if total_pnl_open >= 0 else "red"
+
+    summary_lines = []
+    if open_trades:
+        summary_lines.append(
+            f"  [bold]Open P&L:[/bold]   [{open_pnl_color}]"
+            f"{'+' if total_pnl_open >= 0 else ''}${total_pnl_open:.0f}[/{open_pnl_color}]"
+            f"   [dim]Invested: ${total_invested_open:.0f}[/dim]"
+        )
+    if closed_only:
+        summary_lines.append(
+            f"  [bold]Win rate:[/bold]   {win_rate}"
+        )
+        summary_lines.append(
+            f"  [bold]By source:[/bold]  {source_str}"
+        )
+        real_color  = "green" if real_pnl >= 0 else "red"
+        paper_color = "green" if paper_pnl >= 0 else "red"
+        summary_lines.append(
+            f"  [bold]Real:[/bold]  [{real_color}]{'+' if real_pnl >= 0 else ''}${real_pnl:.0f}[/{real_color}]"
+            f"  ({len(real_closed)} closed)   "
+            f"[bold]Paper:[/bold]  [{paper_color}]{'+' if paper_pnl >= 0 else ''}${paper_pnl:.0f}[/{paper_color}]"
+            f"  ({len(paper_closed)} closed)"
+        )
+
+    if summary_lines:
+        console.print(Panel(
+            "\n".join(summary_lines),
+            title="[bold]Summary[/bold]",
+            border_style="cyan",
+            padding=(1, 2),
+        ))
+
+    console.print(
+        f"  [dim]Close a trade: [bold]tradebrain close-trade ID --exit-cost PRICE[/bold][/dim]\n"
+    )
+
+
+def _cmd_close_trade(args: argparse.Namespace) -> None:
+    """
+    tradebrain close-trade 3 --exit-cost 820
+    tradebrain close-trade 4 --exit-cost 0    # expired worthless
+    """
+    from bot.logger import close_paper_trade, get_trade_by_id
+
+    trade = get_trade_by_id(args.trade_id)
+    if not trade:
+        console.print(f"[red]Trade ID #{args.trade_id} not found.[/red]")
+        return
+    if trade["status"] != "open":
+        console.print(
+            f"[red]Trade #{args.trade_id} is already "
+            f"{trade['status']} — cannot close again.[/red]"
+        )
+        return
+
+    exit_cost   = args.exit_cost
+    updated     = close_paper_trade(args.trade_id, exit_cost)
+    pnl_dollars = updated["pnl_dollars"]
+    pnl_pct     = updated["pnl_pct"]
+    pnl_color   = "green" if pnl_dollars >= 0 else "red"
+    status      = updated["status"]
+
+    console.print(Panel(
+        f"  [bold]ID[/bold]          #{updated['id']}\n"
+        f"  [bold]Contract[/bold]    {updated['ticker']} ${updated['strike']:g} "
+        f"{updated['side'].upper()} exp={updated['expiry']}\n"
+        f"  [bold]Entry[/bold]       ${updated['entry_cost']:.2f}/contract\n"
+        f"  [bold]Exit[/bold]        ${exit_cost:.2f}/contract\n"
+        f"  [bold]Quantity[/bold]    {updated['quantity']}\n"
+        f"  [bold]P&L[/bold]         [{pnl_color}]"
+        f"{'+' if pnl_dollars >= 0 else ''}${pnl_dollars:.0f} "
+        f"({'+' if pnl_pct >= 0 else ''}{pnl_pct:.1f}%)[/{pnl_color}]\n"
+        f"  [bold]Status[/bold]      {status}",
+        title=f"[bold {pnl_color}]Trade Closed — "
+              f"{'Profit ✓' if pnl_dollars > 0 else 'Loss ✗' if pnl_dollars < 0 else 'Breakeven'}[/bold {pnl_color}]",
+        border_style=pnl_color,
+        padding=(1, 2),
+    ))
+
+def _cmd_delete_trade(args: argparse.Namespace) -> None:
+    """
+    tradebrain delete-trade 1
+    Permanently removes a trade from the database.
+    """
+    from bot.logger import delete_paper_trade, get_trade_by_id
+
+    trade = get_trade_by_id(args.trade_id)
+    if not trade:
+        console.print(f"[red]Trade ID #{args.trade_id} not found.[/red]")
+        return
+
+    console.print(
+        f"\n  [yellow]Delete trade #{args.trade_id}: "
+        f"{trade['ticker']} ${trade['strike']:g} {trade['side'].upper()} "
+        f"exp={trade['expiry']} ({trade['trade_type']})? (y/n): [/yellow]",
+        end=""
+    )
+    try:
+        answer = input().strip().lower()
+    except (KeyboardInterrupt, EOFError):
+        return
+
+    if answer not in ("y", "yes"):
+        console.print("[dim]Cancelled.[/dim]")
+        return
+
+    deleted = delete_paper_trade(args.trade_id)
+    if deleted:
+        console.print(f"  [green]✓ Trade #{args.trade_id} deleted.[/green]\n")
+    else:
+        console.print(f"  [red]Could not delete trade #{args.trade_id}.[/red]\n")
+
 def _cmd_history(args: argparse.Namespace) -> None:
     """
     tradebrain history --last 10
@@ -1422,6 +1917,51 @@ def main() -> None:
         hist_ap.add_argument("--id",     type=int, help="Show full detail for a specific  run ID")
         hist_args = hist_ap.parse_args(sys.argv[2:])
         _cmd_history(hist_args)
+        return
+    
+    # route log-trade command
+    if len(sys.argv) > 1 and sys.argv[1] == "log-trade":
+        lt_ap = argparse.ArgumentParser(prog="tradebrain log-trade")
+        lt_ap.add_argument("ticker",              help="Ticker symbol e.g. NVDA")
+        lt_ap.add_argument("--strike",  type=float, required=True, help="Strike price e.g. 235")
+        lt_ap.add_argument("--expiry",  required=True, help="Expiry date YYYY-MM-DD")
+        lt_ap.add_argument("--side",    required=True, choices=["call", "put"], help="call or put")
+        lt_ap.add_argument("--quantity",type=int, default=1, help="Number of contracts (default 1)")
+        lt_ap.add_argument("--source",  help="Source of the trade idea e.g. 'tradebrain', 'twitter @CheddarFlow'")
+        lt_ap.add_argument("--thesis",  help="Optional notes on why you took this trade")
+        type_group = lt_ap.add_mutually_exclusive_group(required=True)
+        type_group.add_argument("--paper", action="store_true", help="Paper trade — bot fetches live price")
+        type_group.add_argument("--real",  action="store_true", help="Real trade — you enter execution price")
+        lt_args = lt_ap.parse_args(sys.argv[2:])
+        _cmd_log_trade(lt_args)
+        return
+
+    # route portfolio command
+    if len(sys.argv) > 1 and sys.argv[1] == "portfolio":
+        port_ap = argparse.ArgumentParser(prog="tradebrain portfolio")
+        port_ap.add_argument("--all",   action="store_true", help="Show open + closed history")
+        port_ap.add_argument("--real",  action="store_true", help="Show real trades only")
+        port_ap.add_argument("--paper", action="store_true", help="Show paper trades only")
+        port_args = port_ap.parse_args(sys.argv[2:])
+        _cmd_portfolio(port_args)
+        return
+
+    # route close-trade command
+    if len(sys.argv) > 1 and sys.argv[1] == "close-trade":
+        ct_ap = argparse.ArgumentParser(prog="tradebrain close-trade")
+        ct_ap.add_argument("trade_id",    type=int, help="Trade ID from portfolio")
+        ct_ap.add_argument("--exit-cost", type=float, required=True,
+                           help="Exit price per contract in dollars. Use 0 for expired worthless.")
+        ct_args = ct_ap.parse_args(sys.argv[2:])
+        _cmd_close_trade(ct_args)
+        return
+    
+    # route delete-trade command
+    if len(sys.argv) > 1 and sys.argv[1] == "delete-trade":
+        dt_ap = argparse.ArgumentParser(prog="tradebrain delete-trade")
+        dt_ap.add_argument("trade_id", type=int, help="Trade ID to permanently delete")
+        dt_args = dt_ap.parse_args(sys.argv[2:])
+        _cmd_delete_trade(dt_args)
         return
     
     # route flow command

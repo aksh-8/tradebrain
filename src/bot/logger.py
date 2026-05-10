@@ -191,3 +191,135 @@ def get_run_detail(run_id: int) -> dict:
         result = dict(row)
         result["picks"] = get_run_picks(run_id)
     return result
+
+# ---------------------------------------------------------------------------
+# Paper trading
+# ---------------------------------------------------------------------------
+
+def _init_paper_trades() -> None:
+    """Creates the paper_trades table if it doesn't exist."""
+    with _conn() as con:
+        con.executescript("""
+        CREATE TABLE IF NOT EXISTS paper_trades (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            logged_at       TEXT    NOT NULL,
+            ticker          TEXT    NOT NULL,
+            strike          REAL    NOT NULL,
+            side            TEXT    NOT NULL,
+            expiry          TEXT    NOT NULL,
+            entry_cost      REAL    NOT NULL,
+            quantity        INTEGER NOT NULL DEFAULT 1,
+            total_invested  REAL    NOT NULL,
+            trade_type      TEXT    NOT NULL,
+            source          TEXT,
+            thesis          TEXT,
+            status          TEXT    NOT NULL DEFAULT 'open',
+            exit_cost       REAL,
+            exit_at         TEXT,
+            pnl_dollars     REAL,
+            pnl_pct         REAL
+        );
+        """)
+
+
+def log_paper_trade(
+    ticker:       str,
+    strike:       float,
+    side:         str,
+    expiry:       str,
+    entry_cost:   float,
+    quantity:     int,
+    trade_type:   str,
+    source:       Optional[str] = None,
+    thesis:       Optional[str] = None,
+) -> int:
+    """
+    Logs a paper or real trade.
+    entry_cost = dollars per contract.
+    Returns the trade id.
+    """
+    _init_paper_trades()
+    logged_at      = datetime.utcnow().isoformat()
+    total_invested = entry_cost * quantity
+
+    with _conn() as con:
+        cur = con.execute(
+            """
+            INSERT INTO paper_trades
+              (logged_at, ticker, strike, side, expiry, entry_cost,
+               quantity, total_invested, trade_type, source, thesis, status)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+            """,
+            (
+                logged_at, ticker.upper(), strike, side, expiry,
+                entry_cost, quantity, total_invested,
+                trade_type, source, thesis, "open",
+            ),
+        )
+    return cur.lastrowid
+
+
+def get_open_trades() -> list[dict]:
+    _init_paper_trades()
+    with _conn() as con:
+        rows = con.execute(
+            "SELECT * FROM paper_trades WHERE status = 'open' ORDER BY logged_at DESC"
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_all_trades() -> list[dict]:
+    _init_paper_trades()
+    with _conn() as con:
+        rows = con.execute(
+            "SELECT * FROM paper_trades ORDER BY logged_at DESC"
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_trade_by_id(trade_id: int) -> Optional[dict]:
+    _init_paper_trades()
+    with _conn() as con:
+        row = con.execute(
+            "SELECT * FROM paper_trades WHERE id = ?", (trade_id,)
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def close_paper_trade(trade_id: int, exit_cost: float) -> dict:
+    """
+    Closes a trade at exit_cost (dollars per contract).
+    Returns the updated trade dict with P&L.
+    """
+    _init_paper_trades()
+    trade = get_trade_by_id(trade_id)
+    if not trade:
+        raise ValueError(f"Trade ID {trade_id} not found.")
+    if trade["status"] != "open":
+        raise ValueError(f"Trade ID {trade_id} is already {trade['status']}.")
+
+    exit_at     = datetime.utcnow().isoformat()
+    pnl_dollars = (exit_cost - trade["entry_cost"]) * trade["quantity"]
+    pnl_pct     = (pnl_dollars / trade["total_invested"] * 100) if trade["total_invested"] else 0
+    status      = "expired" if exit_cost == 0 else "closed"
+
+    with _conn() as con:
+        con.execute(
+            """
+            UPDATE paper_trades
+            SET status=?, exit_cost=?, exit_at=?, pnl_dollars=?, pnl_pct=?
+            WHERE id=?
+            """,
+            (status, exit_cost, exit_at, pnl_dollars, pnl_pct, trade_id),
+        )
+
+    return get_trade_by_id(trade_id)
+
+def delete_paper_trade(trade_id: int) -> bool:
+    """Permanently deletes a trade by ID. Returns True if deleted."""
+    _init_paper_trades()
+    with _conn() as con:
+        cur = con.execute(
+            "DELETE FROM paper_trades WHERE id = ?", (trade_id,)
+        )
+    return cur.rowcount > 0
