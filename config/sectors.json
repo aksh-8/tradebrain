@@ -314,14 +314,16 @@
         "EOSE": 0.65,
         "CEG": 0.55,
         "VST": 0.5,
-        "MP": 0.77
+        "MP": 0.77,
+        "OKLO": 0.83
       },
       "tickers": [
         "SMR",
         "EOSE",
         "CEG",
         "VST",
-        "MP"
+        "MP",
+        "OKLO"
       ],
       "correlated_sectors": [
         "ai_infra"
@@ -526,6 +528,7 @@
     "nokia oyj": "NOK",
     "nokia corporation sponsored": "NOK",
     "mp materials corp.": "MP",
-    "sandisk corporation": "SNDK"
+    "sandisk corporation": "SNDK",
+    "oklo inc.": "OKLO"
   }
 }

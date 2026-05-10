@@ -68,7 +68,8 @@
     "SOFI",
     "NOK",
     "MP",
-    "SNDK"
+    "SNDK",
+    "OKLO"
   ],
   "proxies": {
     "SPY": "IWM",
