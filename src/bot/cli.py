@@ -1260,6 +1260,7 @@ def _cmd_log_trade(args: argparse.Namespace) -> None:
         trade_type = trade_type,
         source     = source,
         thesis     = thesis,
+        llm_provider  = getattr(args, 'llm_provider', None),
     )
 
     type_color = "green" if trade_type == "real" else "blue"
@@ -1270,6 +1271,7 @@ def _cmd_log_trade(args: argparse.Namespace) -> None:
         f"  [bold]Entry price[/bold]  ${entry_cost:.2f}/contract\n"
         f"  [bold]Quantity[/bold]     {qty} contract{'s' if qty > 1 else ''}\n"
         f"  [bold]Total invested[/bold]  ${total:.2f}\n"
+        f"  [bold]LLM[/bold]          {getattr(args, 'llm_provider', None) or 'not specified'}\n"
         f"  [bold]Source[/bold]       {source}\n"
         + (f"  [bold]Thesis[/bold]       {thesis}\n" if thesis else ""),
         title=f"[bold {'green' if trade_type == 'real' else 'blue'}]"
@@ -1929,6 +1931,7 @@ def main() -> None:
         lt_ap.add_argument("--quantity",type=int, default=1, help="Number of contracts (default 1)")
         lt_ap.add_argument("--source",  help="Source of the trade idea e.g. 'tradebrain', 'twitter @CheddarFlow'")
         lt_ap.add_argument("--thesis",  help="Optional notes on why you took this trade")
+        lt_ap.add_argument("--llm-provider", choices=["gemini", "ollama"], help="LLM used for the analysis that led to this trade")
         type_group = lt_ap.add_mutually_exclusive_group(required=True)
         type_group.add_argument("--paper", action="store_true", help="Paper trade — bot fetches live price")
         type_group.add_argument("--real",  action="store_true", help="Real trade — you enter execution price")

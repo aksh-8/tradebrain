@@ -213,6 +213,7 @@ def _init_paper_trades() -> None:
             trade_type      TEXT    NOT NULL,
             source          TEXT,
             thesis          TEXT,
+            llm_provider    TEXT,
             status          TEXT    NOT NULL DEFAULT 'open',
             exit_cost       REAL,
             exit_at         TEXT,
@@ -220,6 +221,12 @@ def _init_paper_trades() -> None:
             pnl_pct         REAL
         );
         """)
+    
+    # migrate existing table — add llm_provider if missing
+    with _conn() as con:
+        cols = [r[1] for r in con.execute("PRAGMA table_info(paper_trades)").fetchall()]
+        if "llm_provider" not in cols:
+            con.execute("ALTER TABLE paper_trades ADD COLUMN llm_provider TEXT")
 
 
 def log_paper_trade(
@@ -232,6 +239,7 @@ def log_paper_trade(
     trade_type:   str,
     source:       Optional[str] = None,
     thesis:       Optional[str] = None,
+    llm_provider: Optional[str] = None,
 ) -> int:
     """
     Logs a paper or real trade.
@@ -247,13 +255,13 @@ def log_paper_trade(
             """
             INSERT INTO paper_trades
               (logged_at, ticker, strike, side, expiry, entry_cost,
-               quantity, total_invested, trade_type, source, thesis, status)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+               quantity, total_invested, trade_type, source, thesis, llm_provider, status)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
             """,
             (
                 logged_at, ticker.upper(), strike, side, expiry,
                 entry_cost, quantity, total_invested,
-                trade_type, source, thesis, "open",
+                trade_type, source, thesis, llm_provider, "open",
             ),
         )
     return cur.lastrowid

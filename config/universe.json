@@ -69,7 +69,9 @@
     "NOK",
     "MP",
     "SNDK",
-    "OKLO"
+    "OKLO",
+    "SNAP",
+    "ORCL"
   ],
   "proxies": {
     "SPY": "IWM",
