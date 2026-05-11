@@ -1483,7 +1483,7 @@ def _cmd_portfolio(args: argparse.Namespace) -> None:
             padding=(1, 1),
         ))
 
-    # -----------------------------------------------------------------------
+# -----------------------------------------------------------------------
     # Summary
     # -----------------------------------------------------------------------
     all_closed    = get_all_trades() if not args.all else trades
@@ -1514,12 +1514,41 @@ def _cmd_portfolio(args: argparse.Namespace) -> None:
 
     open_pnl_color = "green" if total_pnl_open >= 0 else "red"
 
+    # new metrics
+    roi_pct = (total_pnl_open / total_invested_open * 100) if total_invested_open > 0 else 0
+    roi_color = "green" if roi_pct >= 0 else "red"
+
+    # largest position
+    largest = max(open_trades, key=lambda t: t["total_invested"]) if open_trades else None
+    largest_str = (
+        f"{largest['ticker']} ${largest['strike']:g} {largest['side']} "
+        f"${largest['total_invested']:.0f} "
+        f"({largest['total_invested']/total_invested_open*100:.0f}% of portfolio)"
+    ) if largest and total_invested_open > 0 else "—"
+
+    # expiring soon
+    expiring = [
+        t for t in open_trades
+        if (datetime.strptime(t["expiry"], "%Y-%m-%d").date() - today).days <= 14
+    ]
+    expiring_str = "  ".join(
+        f"[red]#{t['id']} {t['ticker']} ({(datetime.strptime(t['expiry'], '%Y-%m-%d').date() - today).days}d)[/red]"
+        for t in sorted(expiring, key=lambda t: t["expiry"])
+    ) if expiring else "[green]none[/green]"
+
     summary_lines = []
     if open_trades:
         summary_lines.append(
             f"  [bold]Open P&L:[/bold]   [{open_pnl_color}]"
             f"{'+' if total_pnl_open >= 0 else ''}${total_pnl_open:.0f}[/{open_pnl_color}]"
+            f"   [{roi_color}]({'+' if roi_pct >= 0 else ''}{roi_pct:.1f}% ROI)[/{roi_color}]"
             f"   [dim]Invested: ${total_invested_open:.0f}[/dim]"
+        )
+        summary_lines.append(
+            f"  [bold]Largest:[/bold]    {largest_str}"
+        )
+        summary_lines.append(
+            f"  [bold]Expiring soon:[/bold]  {expiring_str}"
         )
     if closed_only:
         summary_lines.append(
@@ -1545,10 +1574,6 @@ def _cmd_portfolio(args: argparse.Namespace) -> None:
             padding=(1, 2),
         ))
 
-    console.print(
-        f"  [dim]Close a trade: [bold]tradebrain close-trade ID --exit-cost PRICE[/bold][/dim]\n"
-    )
-
 
 def _cmd_close_trade(args: argparse.Namespace) -> None:
     """
@@ -1568,7 +1593,60 @@ def _cmd_close_trade(args: argparse.Namespace) -> None:
         )
         return
 
-    exit_cost   = args.exit_cost
+    # -----------------------------------------------------------------------
+    # Exit price — real: prompt user, paper: auto-fetch live mid
+    # -----------------------------------------------------------------------
+    if trade["trade_type"] == "real":
+        # always prompt for real trades
+        if args.exit_cost is not None:
+            exit_cost = args.exit_cost
+        else:
+            try:
+                raw = console.input(
+                    f"  [bold cyan]What did you sell for on Robinhood? "
+                    f"Enter exit price per share (e.g. 6.20): [/bold cyan]"
+                ).strip()
+                exit_cost = float(raw) * 100
+                console.print(f"  [dim]${float(raw):.2f} × 100 = ${exit_cost:.2f}/contract[/dim]\n")
+            except (ValueError, KeyboardInterrupt):
+                console.print("[red]Invalid price. Trade not closed.[/red]")
+                return
+    else:
+        # paper trade — auto-fetch live mid price
+        if args.exit_cost is not None:
+            # user explicitly provided price — use it
+            exit_cost = args.exit_cost
+            console.print(f"  [dim]Using provided exit price: ${exit_cost:.2f}/contract[/dim]\n")
+        else:
+            with console.status(
+                f"[cyan]Fetching live exit price for "
+                f"{trade['ticker']} ${trade['strike']:g} {trade['side'].upper()}...[/cyan]",
+                spinner="dots"
+            ):
+                fetched, used_last = _fetch_live_contract_price(
+                    trade["ticker"], trade["strike"],
+                    trade["side"], trade["expiry"]
+                )
+
+            if fetched is None:
+                console.print(
+                    "[red]Could not fetch live price. "
+                    "Provide manually with --exit-cost PRICE.[/red]"
+                )
+                return
+
+            exit_cost = fetched
+            if not _is_market_open():
+                console.print(
+                    f"  [yellow]⚠ Market closed — using last traded price "
+                    f"${exit_cost:.2f}/contract.[/yellow]\n"
+                )
+            else:
+                console.print(
+                    f"  [green]✓ Live exit price fetched: "
+                    f"${exit_cost:.2f}/contract[/green]\n"
+                )
+
     updated     = close_paper_trade(args.trade_id, exit_cost)
     pnl_dollars = updated["pnl_dollars"]
     pnl_pct     = updated["pnl_pct"]
@@ -1579,6 +1657,7 @@ def _cmd_close_trade(args: argparse.Namespace) -> None:
         f"  [bold]ID[/bold]          #{updated['id']}\n"
         f"  [bold]Contract[/bold]    {updated['ticker']} ${updated['strike']:g} "
         f"{updated['side'].upper()} exp={updated['expiry']}\n"
+        f"  [bold]Type[/bold]        {updated['trade_type']}\n"
         f"  [bold]Entry[/bold]       ${updated['entry_cost']:.2f}/contract\n"
         f"  [bold]Exit[/bold]        ${exit_cost:.2f}/contract\n"
         f"  [bold]Quantity[/bold]    {updated['quantity']}\n"
@@ -1952,9 +2031,12 @@ def main() -> None:
     # route close-trade command
     if len(sys.argv) > 1 and sys.argv[1] == "close-trade":
         ct_ap = argparse.ArgumentParser(prog="tradebrain close-trade")
-        ct_ap.add_argument("trade_id",    type=int, help="Trade ID from portfolio")
-        ct_ap.add_argument("--exit-cost", type=float, required=True,
-                           help="Exit price per contract in dollars. Use 0 for expired worthless.")
+        ct_ap.add_argument("trade_id", type=int, help="Trade ID from portfolio")
+        ct_ap.add_argument("--exit-cost", type=float, default=None,
+                           help="Exit price per contract in dollars. "
+                                "Paper trades auto-fetch if omitted. "
+                                "Real trades prompt if omitted. "
+                                "Use 0 for expired worthless.")
         ct_args = ct_ap.parse_args(sys.argv[2:])
         _cmd_close_trade(ct_args)
         return

@@ -131,9 +131,7 @@
         "AAPL": 0.5,
         "TSLA": 0.4,
         "NOK": 0.1,
-        "SNDK": 0.17,
-        "SNAP": 1.2,
-        "ORCL": 1.3
+        "SNDK": 0.17
       },
       "tickers": [
         "MSFT",
@@ -143,9 +141,7 @@
         "AAPL",
         "TSLA",
         "NOK",
-        "SNDK",
-        "SNAP",
-        "ORCL"
+        "SNDK"
       ],
       "correlated_sectors": [
         "semis_compute",
@@ -533,8 +529,6 @@
     "nokia corporation sponsored": "NOK",
     "mp materials corp.": "MP",
     "sandisk corporation": "SNDK",
-    "oklo inc.": "OKLO",
-    "snap inc.": "SNAP",
-    "oracle corporation": "ORCL"
+    "oklo inc.": "OKLO"
   }
 }

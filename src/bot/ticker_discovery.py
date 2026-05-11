@@ -38,18 +38,22 @@ _SECTOR_MAP: dict[str, str] = {
 }
 
 _INDUSTRY_MAP: dict[str, str] = {
-    # yfinance industry string → our slug (more specific, checked first)
+    # existing entries...
     "semiconductors":                      "semis_compute",
     "semiconductor equipment & materials": "semis_equipment",
     "software — application":              "ai_software",
     "software — infrastructure":           "cloud_cyber",
     "internet content & information":      "big_tech",
+    "internet retail":                     "big_tech",
     "computer hardware":                   "big_tech",
     "electronic components":               "semis_compute",
     "medical devices":                     "healthtech",
     "drug manufacturers":                  "healthtech",
+    "biotechnology":                       "healthtech",
     "uranium":                             "energy_infra",
     "nuclear":                             "energy_infra",
+    "solar":                               "energy_infra",
+    "oil & gas":                           "energy_infra",
     "asset management":                    "etfs",
     "exchange traded fund":                "etfs",
     "capital markets":                     "fintech",
@@ -57,13 +61,23 @@ _INDUSTRY_MAP: dict[str, str] = {
     "financial technology":                "fintech",
     "insurance":                           "fintech",
     "banks":                               "fintech",
+    # new entries
+    "auto manufacturers":                  "robotics",
+    "auto parts":                          "robotics",
+    "farm & heavy construction machinery": "robotics",
+    "specialty industrial machinery":      "robotics",
+    "entertainment":                       "big_tech",
+    "media":                               "big_tech",
+    "advertising agencies":                "big_tech",
+    "telecom services":                    "big_tech",
+    "electronic gaming & multimedia":      "big_tech",
 }
 
 
 def _classify_sector(info: dict) -> str:
     """
     Maps yfinance info dict to our sector slug.
-    Falls back to 'ai_software' as default.
+    Uses industry map first, then sector map, then LLM for ambiguous cases.
     """
     sector   = (info.get("sector")   or "").lower().strip()
     industry = (info.get("industry") or "").lower().strip()
@@ -73,12 +87,83 @@ def _classify_sector(info: dict) -> str:
         if key in industry:
             return slug
 
+    # sector map — but skip consumer cyclical (too broad, goes to LLM)
     for key, slug in _SECTOR_MAP.items():
+        if key == "consumer cyclical":
+            continue
         if key in sector:
             return slug
 
-    return "ai_software"  # default for unknown
 
+    # LLM fallback for ambiguous cases (consumer cyclical, unknown sector, etc.)
+    company_name = info.get("longName") or info.get("shortName") or ""
+    description  = (info.get("longBusinessSummary") or "")[:300]
+    llm_slug = _classify_sector_with_llm(company_name, sector, industry, description)
+    if llm_slug:
+        return llm_slug
+
+    # consumer cyclical fallback if LLM unavailable
+    if "consumer" in sector:
+        return "big_tech"
+
+    return "ai_software"
+
+def _classify_sector_with_llm(
+    company_name: str,
+    sector: str,
+    industry: str,
+    description: str,
+) -> Optional[str]:
+    """
+    Uses Gemini to classify sector when industry map is ambiguous.
+    Only called once per new ticker discovery.
+    """
+    try:
+        from bot.research import _gemini_available, _call_gemini
+        if not _gemini_available():
+            return None
+
+        valid_slugs = [
+            "semis_compute", "semis_memory", "semis_equipment", "ai_infra",
+            "big_tech", "ai_software", "cloud_cyber", "cyber_nextgen",
+            "robotics", "healthtech", "crypto_miners", "quantum",
+            "etfs", "energy_infra", "ai_data", "fintech",
+        ]
+
+        prompt = (
+            f"Classify this company into exactly one sector slug. "
+            f"Return ONLY the slug, nothing else.\n\n"
+            f"Company: {company_name}\n"
+            f"yfinance sector: {sector}\n"
+            f"yfinance industry: {industry}\n"
+            f"Description: {description}\n\n"
+            f"Sector slugs:\n"
+            f"- semis_compute: semiconductor chips (NVIDIA, AMD, Intel, Qualcomm)\n"
+            f"- semis_memory: memory chips (Micron, WD, SNDK)\n"
+            f"- semis_equipment: chip equipment (ASML, AMAT, LRCX)\n"
+            f"- big_tech: large tech, consumer internet, China ADRs, social media "
+            f"(MSFT, GOOGL, META, BABA, PDD, JD, SNAP, PINS)\n"
+            f"- ai_software: AI/enterprise software (Palantir, Salesforce, ServiceNow)\n"
+            f"- cloud_cyber: cloud and cybersecurity (CrowdStrike, Cloudflare, Palo Alto)\n"
+            f"- robotics: EVs, autonomous vehicles, automation, industrial (Tesla, Rivian, Lucid)\n"
+            f"- healthtech: healthcare, biotech, pharma (Hims, Moderna, Pfizer)\n"
+            f"- crypto_miners: bitcoin/crypto mining and blockchain (MARA, CleanSpark, Riot)\n"
+            f"- quantum: quantum computing (IonQ, Rigetti, D-Wave, QBTS)\n"
+            f"- energy_infra: energy, nuclear, solar, utilities, materials (SMR, OKLO)\n"
+            f"- fintech: payments, banking, financial tech (Coinbase, SQ, Stripe)\n"
+            f"- etfs: ETFs and index funds\n"
+        )
+
+        result = _call_gemini(prompt).strip().lower()
+        # clean up any extra text Gemini might add
+        for slug in valid_slugs:
+            if slug in result:
+                return slug
+        return None
+
+    except Exception:
+        return None
+    
 
 def _compute_beta(
     ticker: str,
