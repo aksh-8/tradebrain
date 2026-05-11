@@ -19,7 +19,7 @@ _SECTORS_PATH  = Path(__file__).parent.parent.parent / "config" / "sectors.json"
 _SECTOR_MAP: dict[str, str] = {
     # yfinance sector string → our slug
     "technology":               "big_tech",
-    "communication services":   "big_tech",
+    "communication services":   "social_media",   # SNAP, PINS, RDDT — was wrongly big_tech
     "semiconductors":           "semis_compute",
     "semiconductor equipment":  "semis_equipment",
     "software":                 "ai_software",
@@ -27,51 +27,80 @@ _SECTOR_MAP: dict[str, str] = {
     "cloud":                    "cloud_cyber",
     "financial services":       "fintech",
     "financial":                "fintech",
-    "energy":                   "energy_infra",
+    "energy":                   "energy_trad",     # OXY, XOM, CVX — split from nuclear/SMR
     "utilities":                "energy_infra",
     "healthcare":               "healthtech",
     "biotechnology":            "healthtech",
-    "consumer cyclical":        "big_tech",
+    "consumer cyclical":        "ev_auto",         # RIVN, NIO, GM, F — was wrongly big_tech
     "consumer defensive":       "big_tech",
     "industrials":              "robotics",
     "basic materials":          "energy_infra",
 }
 
 _INDUSTRY_MAP: dict[str, str] = {
-    # existing entries...
+    # yfinance industry string → our slug (more specific, checked first)
+
+    # Semis
     "semiconductors":                      "semis_compute",
     "semiconductor equipment & materials": "semis_equipment",
+
+    # Software / Cloud
     "software — application":              "ai_software",
     "software — infrastructure":           "cloud_cyber",
-    "internet content & information":      "big_tech",
-    "internet retail":                     "big_tech",
+
+    # EV / Auto — NEW
+    "auto manufacturers":                  "ev_auto",
+    "auto parts":                          "ev_auto",
+    "automobiles":                         "ev_auto",
+    "electric vehicles":                   "ev_auto",
+
+    # Social / Consumer internet — NEW
+    "internet content & information":      "social_media",
+    "entertainment":                       "social_media",
+    "media":                               "social_media",
+
+    # China ADRs tend to be e-commerce/consumer — NEW
+    "internet retail":                     "china_adr",
+    "specialty retail":                    "big_tech",
+
+    # Hardware / compute
     "computer hardware":                   "big_tech",
     "electronic components":               "semis_compute",
+
+    # Health
     "medical devices":                     "healthtech",
     "drug manufacturers":                  "healthtech",
     "biotechnology":                       "healthtech",
+
+    # Energy
     "uranium":                             "energy_infra",
     "nuclear":                             "energy_infra",
-    "solar":                               "energy_infra",
-    "oil & gas":                           "energy_infra",
+    "oil & gas e&p":                       "energy_trad",   # OXY
+    "oil & gas integrated":                "energy_trad",   # XOM, CVX
+    "oil & gas midstream":                 "energy_trad",
+
+    # Funds / ETFs
     "asset management":                    "etfs",
     "exchange traded fund":                "etfs",
+    "gold":                                "etfs",          # GLD, GDX
+    "precious metals":                     "etfs",
+
+    # Fintech
     "capital markets":                     "fintech",
     "financial data & stock exchanges":    "fintech",
     "financial technology":                "fintech",
     "insurance":                           "fintech",
     "banks":                               "fintech",
-    # new entries
-    "auto manufacturers":                  "robotics",
-    "auto parts":                          "robotics",
-    "farm & heavy construction machinery": "robotics",
-    "specialty industrial machinery":      "robotics",
-    "entertainment":                       "big_tech",
-    "media":                               "big_tech",
-    "advertising agencies":                "big_tech",
-    "telecom services":                    "big_tech",
-    "electronic gaming & multimedia":      "big_tech",
+    "banks — diversified":                 "fintech",       # WFC, JPM
+    "credit services":                     "fintech",       # PYPL
+
+    # Crypto
+    "crypto":                              "crypto_miners",
+    "bitcoin":                             "crypto_miners",
 }
+
+# default fallback — big_tech is safer than ai_software for true unknowns
+_DEFAULT_SLUG = "big_tech"
 
 
 def _classify_sector(info: dict) -> str:
@@ -106,7 +135,7 @@ def _classify_sector(info: dict) -> str:
     if "consumer" in sector:
         return "big_tech"
 
-    return "ai_software"
+    return "big_tech"
 
 def _classify_sector_with_llm(
     company_name: str,

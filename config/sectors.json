@@ -131,7 +131,8 @@
         "AAPL": 0.5,
         "TSLA": 0.4,
         "NOK": 0.1,
-        "SNDK": 0.17
+        "SNDK": 0.17,
+        "ORCL": 1.31
       },
       "tickers": [
         "MSFT",
@@ -141,7 +142,8 @@
         "AAPL",
         "TSLA",
         "NOK",
-        "SNDK"
+        "SNDK",
+        "ORCL"
       ],
       "correlated_sectors": [
         "semis_compute",
@@ -388,12 +390,14 @@
         "HOOD",
         "COIN",
         "SOFI",
-        "AFRM"
+        "AFRM",
+        "CLSK"
       ],
       "beta_to_leader": {
         "HOOD": 0.67,
         "SOFI": 0.46,
-        "AFRM": 1.2
+        "AFRM": 1.2,
+        "CLSK": 0.51
       },
       "cross_sector_signals": [],
       "correlated_sectors": [
@@ -401,6 +405,88 @@
       ],
       "macro_sensitivity": "high",
       "risk_note": "Sensitive to crypto prices, interest rates, and retail trading volume"
+    },
+    {
+      "name": "EV and Auto",
+      "slug": "ev_auto",
+      "leader": "TSLA",
+      "leader_note": "TSLA leads EV sentiment globally. RIVN and NIO follow with higher beta. GM/F are traditional auto proxies with lower beta.",
+      "beta_to_leader": {
+        "RIVN": 0.38,
+        "NIO": 0.32
+      },
+      "tickers": [
+        "RIVN",
+        "NIO",
+        "GM",
+        "F"
+      ],
+      "correlated_sectors": [
+        "big_tech",
+        "energy_trad"
+      ],
+      "macro_sensitivity": "high",
+      "risk_note": "EV names are macro-sensitive and policy-driven. Tariff news, EV incentive changes, and TSLA delivery data are primary catalysts. NIO and RIVN have thin margins — any guidance miss hits hard."
+    },
+    {
+      "name": "Social media and consumer internet",
+      "slug": "social_media",
+      "leader": "META",
+      "leader_note": "META leads social/consumer internet. SNAP and PINS are high-beta followers. Ad market conditions drive the whole group.",
+      "beta_to_leader": {
+        "SNAP": 0.92
+      },
+      "tickers": [
+        "SNAP",
+        "PINS",
+        "RDDT"
+      ],
+      "correlated_sectors": [
+        "big_tech",
+        "fintech"
+      ],
+      "macro_sensitivity": "medium",
+      "risk_note": "Ad spend is cyclical — recession fears compress the whole group fast. SNAP is the highest beta name relative to META. Earnings weeks cause IV spikes across the cluster."
+    },
+    {
+      "name": "China ADRs",
+      "slug": "china_adr",
+      "leader": "BABA",
+      "leader_note": "BABA leads China ADR sentiment. PDD and JD follow. Geopolitical headlines and US-China trade policy are the primary macro drivers.",
+      "beta_to_leader": {
+        "PDD": 0.6,
+        "BABA": 1.0
+      },
+      "tickers": [
+        "BABA",
+        "PDD",
+        "JD",
+        "NIO",
+        "BIDU"
+      ],
+      "correlated_sectors": [
+        "big_tech",
+        "ev_auto"
+      ],
+      "macro_sensitivity": "very_high",
+      "risk_note": "China ADRs can gap 5-10% on single headlines — tariffs, delisting threats, regulatory crackdowns. Always check geopolitical calendar before entering. High IV is normal — options are expensive."
+    },
+    {
+      "name": "Traditional energy",
+      "slug": "energy_trad",
+      "leader": "XOM",
+      "leader_note": "XOM leads traditional energy. OXY and CVX follow. Oil price and production data are the primary drivers.",
+      "beta_to_leader": {},
+      "tickers": [
+        "XOM",
+        "OXY",
+        "CVX"
+      ],
+      "correlated_sectors": [
+        "energy_infra"
+      ],
+      "macro_sensitivity": "medium",
+      "risk_note": "Oil macro drives the sector — WTI price, OPEC decisions, inventory data. Lower volatility than AI names. Better for defined-risk plays with wider DTE."
     }
   ],
   "cross_sector_signals": [
@@ -529,6 +615,13 @@
     "nokia corporation sponsored": "NOK",
     "mp materials corp.": "MP",
     "sandisk corporation": "SNDK",
-    "oklo inc.": "OKLO"
+    "oklo inc.": "OKLO",
+    "snap inc.": "SNAP",
+    "rivian automotive, inc.": "RIVN",
+    "nio inc.": "NIO",
+    "oracle corporation": "ORCL",
+    "pdd holdings inc.": "PDD",
+    "alibaba group holding limited": "BABA",
+    "cleanspark, inc.": "CLSK"
   }
 }
