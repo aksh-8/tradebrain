@@ -1483,7 +1483,7 @@ def _cmd_portfolio(args: argparse.Namespace) -> None:
             padding=(1, 1),
         ))
 
-# -----------------------------------------------------------------------
+    # -----------------------------------------------------------------------
     # Summary
     # -----------------------------------------------------------------------
     all_closed    = get_all_trades() if not args.all else trades
@@ -1512,8 +1512,6 @@ def _cmd_portfolio(args: argparse.Namespace) -> None:
     real_pnl      = sum(t.get("pnl_dollars") or 0 for t in real_closed)
     paper_pnl     = sum(t.get("pnl_dollars") or 0 for t in paper_closed)
 
-    open_pnl_color = "green" if total_pnl_open >= 0 else "red"
-
     # new metrics
     roi_pct = (total_pnl_open / total_invested_open * 100) if total_invested_open > 0 else 0
     roi_color = "green" if roi_pct >= 0 else "red"
@@ -1537,34 +1535,160 @@ def _cmd_portfolio(args: argparse.Namespace) -> None:
     ) if expiring else "[green]none[/green]"
 
     summary_lines = []
+
+    # -----------------------------------------------------------------------
+    # Open positions summary
+    # -----------------------------------------------------------------------
     if open_trades:
+        paper_open  = [t for t in open_trades if t["trade_type"] == "paper"]
+        real_open   = [t for t in open_trades if t["trade_type"] == "real"]
+
+        paper_open_pnl = sum(
+            (live_prices.get(t["id"]) - t["entry_cost"]) * t["quantity"]
+            for t in paper_open
+            if live_prices.get(t["id"]) is not None
+        )
+        real_open_pnl = sum(
+            (live_prices.get(t["id"]) - t["entry_cost"]) * t["quantity"]
+            for t in real_open
+            if live_prices.get(t["id"]) is not None
+        )
+
+        paper_open_up   = sum(1 for t in paper_open if live_prices.get(t["id"]) is not None and (live_prices[t["id"]] - t["entry_cost"]) * t["quantity"] >= 0)
+        paper_open_down = len(paper_open) - paper_open_up
+        real_open_up    = sum(1 for t in real_open if live_prices.get(t["id"]) is not None and (live_prices[t["id"]] - t["entry_cost"]) * t["quantity"] >= 0)
+        real_open_down  = len(real_open) - real_open_up
+
+        roi_pct    = (total_pnl_open / total_invested_open * 100) if total_invested_open > 0 else 0
+        roi_color  = "green" if roi_pct >= 0 else "red"
+        open_pnl_color = "green" if total_pnl_open >= 0 else "red"
+
         summary_lines.append(
             f"  [bold]Open P&L:[/bold]   [{open_pnl_color}]"
             f"{'+' if total_pnl_open >= 0 else ''}${total_pnl_open:.0f}[/{open_pnl_color}]"
             f"   [{roi_color}]({'+' if roi_pct >= 0 else ''}{roi_pct:.1f}% ROI)[/{roi_color}]"
             f"   [dim]Invested: ${total_invested_open:.0f}[/dim]"
         )
+
+        # 1. paper open win/loss
+        p_open_color = "green" if paper_open_pnl >= 0 else "red"
         summary_lines.append(
-            f"  [bold]Largest:[/bold]    {largest_str}"
+            f"  [bold]Paper open:[/bold] "
+            f"[{p_open_color}]{paper_open_up}↑/{paper_open_down}↓  "
+            f"{'+' if paper_open_pnl >= 0 else ''}${paper_open_pnl:.0f}[/{p_open_color}]"
+            f"  ({len(paper_open)} positions)"
         )
-        summary_lines.append(
-            f"  [bold]Expiring soon:[/bold]  {expiring_str}"
-        )
+
+        # 2. real open win/loss
+        if real_open:
+            r_open_color = "green" if real_open_pnl >= 0 else "red"
+            summary_lines.append(
+                f"  [bold]Real open:[/bold]  "
+                f"[{r_open_color}]{real_open_up}↑/{real_open_down}↓  "
+                f"{'+' if real_open_pnl >= 0 else ''}${real_open_pnl:.0f}[/{r_open_color}]"
+                f"  ({len(real_open)} positions)"
+            )
+
+        # largest position
+        largest = max(open_trades, key=lambda t: t["total_invested"])
+        if total_invested_open > 0:
+            summary_lines.append(
+                f"  [bold]Largest:[/bold]    {largest['ticker']} "
+                f"${largest['strike']:g} {largest['side']} "
+                f"${largest['total_invested']:.0f} "
+                f"({largest['total_invested']/total_invested_open*100:.0f}% of portfolio)"
+            )
+
+        # expiring soon
+        expiring = [
+            t for t in open_trades
+            if (datetime.strptime(t["expiry"], "%Y-%m-%d").date() - today).days <= 14
+        ]
+        expiring_str = "  ".join(
+            f"[red]#{t['id']} {t['ticker']} "
+            f"({(datetime.strptime(t['expiry'], '%Y-%m-%d').date() - today).days}d)[/red]"
+            for t in sorted(expiring, key=lambda t: t["expiry"])
+        ) if expiring else "[green]none[/green]"
+        summary_lines.append(f"  [bold]Expiring soon:[/bold]  {expiring_str}")
+
+        # LLM open breakdown
+        llm_open_stats: dict[str, dict] = {}
+        for t in open_trades:
+            provider = t.get("llm_provider") or "unknown"
+            if provider not in llm_open_stats:
+                llm_open_stats[provider] = {"up": 0, "down": 0, "pnl": 0.0}
+            now_price = live_prices.get(t["id"])
+            if now_price is not None:
+                pnl = (now_price - t["entry_cost"]) * t["quantity"]
+                llm_open_stats[provider]["pnl"] += pnl
+                if pnl >= 0:
+                    llm_open_stats[provider]["up"] += 1
+                else:
+                    llm_open_stats[provider]["down"] += 1
+        if llm_open_stats:
+            llm_open_str = "  ".join(
+                f"{k}: {v['up']}↑/{v['down']}↓ "
+                f"({'+' if v['pnl'] >= 0 else ''}${v['pnl']:.0f})"
+                for k, v in llm_open_stats.items()
+            )
+            summary_lines.append(f"  [bold]LLM open:[/bold]   {llm_open_str}")
+
+    # -----------------------------------------------------------------------
+    # Closed positions summary
+    # -----------------------------------------------------------------------
+    all_trades_ever = get_all_trades()
+    closed_only     = [t for t in all_trades_ever if t["status"] in ("closed", "expired")]
+
     if closed_only:
-        summary_lines.append(
-            f"  [bold]Win rate:[/bold]   {win_rate}"
-        )
-        summary_lines.append(
-            f"  [bold]By source:[/bold]  {source_str}"
-        )
-        real_color  = "green" if real_pnl >= 0 else "red"
-        paper_color = "green" if paper_pnl >= 0 else "red"
-        summary_lines.append(
-            f"  [bold]Real:[/bold]  [{real_color}]{'+' if real_pnl >= 0 else ''}${real_pnl:.0f}[/{real_color}]"
-            f"  ({len(real_closed)} closed)   "
-            f"[bold]Paper:[/bold]  [{paper_color}]{'+' if paper_pnl >= 0 else ''}${paper_pnl:.0f}[/{paper_color}]"
-            f"  ({len(paper_closed)} closed)"
-        )
+        paper_closed = [t for t in closed_only if t["trade_type"] == "paper"]
+        real_closed  = [t for t in closed_only if t["trade_type"] == "real"]
+
+        paper_wins   = [t for t in paper_closed if (t.get("pnl_dollars") or 0) > 0]
+        paper_losses = [t for t in paper_closed if (t.get("pnl_dollars") or 0) <= 0]
+        real_wins    = [t for t in real_closed  if (t.get("pnl_dollars") or 0) > 0]
+        real_losses  = [t for t in real_closed  if (t.get("pnl_dollars") or 0) <= 0]
+
+        paper_pnl = sum(t.get("pnl_dollars") or 0 for t in paper_closed)
+        real_pnl  = sum(t.get("pnl_dollars") or 0 for t in real_closed)
+
+        summary_lines.append("")  # spacer
+
+        # 3. paper historical
+        if paper_closed:
+            p_color = "green" if paper_pnl >= 0 else "red"
+            p_wr    = f"{len(paper_wins)}/{len(paper_closed)} ({len(paper_wins)/len(paper_closed)*100:.0f}%)"
+            summary_lines.append(
+                f"  [bold]Paper history:[/bold] {p_wr}  "
+                f"[{p_color}]{'+' if paper_pnl >= 0 else ''}${paper_pnl:.0f}[/{p_color}]"
+            )
+
+        # 4. real historical
+        if real_closed:
+            r_color = "green" if real_pnl >= 0 else "red"
+            r_wr    = f"{len(real_wins)}/{len(real_closed)} ({len(real_wins)/len(real_closed)*100:.0f}%)"
+            summary_lines.append(
+                f"  [bold]Real history:[/bold]  {r_wr}  "
+                f"[{r_color}]{'+' if real_pnl >= 0 else ''}${real_pnl:.0f}[/{r_color}]"
+            )
+
+        # LLM historical win rate
+        llm_stats: dict[str, dict] = {}
+        for t in closed_only:
+            provider = t.get("llm_provider") or "unknown"
+            if provider not in llm_stats:
+                llm_stats[provider] = {"W": 0, "L": 0, "pnl": 0.0}
+            if (t.get("pnl_dollars") or 0) > 0:
+                llm_stats[provider]["W"] += 1
+            else:
+                llm_stats[provider]["L"] += 1
+            llm_stats[provider]["pnl"] += t.get("pnl_dollars") or 0
+        if llm_stats:
+            llm_str = "  ".join(
+                f"{k}: {v['W']}W/{v['L']}L "
+                f"({'+' if v['pnl'] >= 0 else ''}${v['pnl']:.0f})"
+                for k, v in llm_stats.items()
+            )
+            summary_lines.append(f"  [bold]LLM history:[/bold] {llm_str}")
 
     if summary_lines:
         console.print(Panel(
@@ -1573,6 +1697,12 @@ def _cmd_portfolio(args: argparse.Namespace) -> None:
             border_style="cyan",
             padding=(1, 2),
         ))
+
+    console.print(
+        f"  [dim]Close a trade: "
+        f"[bold]tradebrain close-trade ID[/bold] "
+        f"(paper auto-fetches price, real prompts)[/dim]\n"
+    )
 
 
 def _cmd_close_trade(args: argparse.Namespace) -> None:
