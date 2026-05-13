@@ -1323,6 +1323,56 @@ def _cmd_portfolio(args: argparse.Namespace) -> None:
 
     today = date.today()
 
+    # --detail flag — show single trade detail
+    if hasattr(args, 'detail') and args.detail is not None:
+        from bot.logger import get_trade_by_id
+        from datetime import datetime
+        trade = get_trade_by_id(args.detail)
+        if not trade:
+            console.print(f"[red]Trade #{args.detail} not found.[/red]")
+            return
+        now_price, used_last = _fetch_live_contract_price(
+            trade["ticker"], trade["strike"], trade["side"], trade["expiry"]
+        )
+        pnl_str = "—"
+        if trade["status"] == "open" and now_price is not None:
+            pnl = (now_price - trade["entry_cost"]) * trade["quantity"]
+            pnl_pct = pnl / trade["total_invested"] * 100
+            pnl_color = "green" if pnl >= 0 else "red"
+            pnl_str = f"[{pnl_color}]{'+' if pnl >= 0 else ''}${pnl:.0f} ({'+' if pnl_pct >= 0 else ''}{pnl_pct:.1f}%)[/{pnl_color}]"
+        elif trade["status"] in ("closed", "expired") and trade.get("pnl_dollars") is not None:
+            pnl_color = "green" if trade["pnl_dollars"] >= 0 else "red"
+            pnl_str = f"[{pnl_color}]{'+' if trade['pnl_dollars'] >= 0 else ''}${trade['pnl_dollars']:.0f} ({'+' if trade['pnl_pct'] >= 0 else ''}{trade['pnl_pct']:.1f}%)[/{pnl_color}]"
+
+        logged_at = (trade.get("logged_at") or "")[:10]
+        exit_line = ""
+        if trade["status"] in ("closed", "expired"):
+            exit_at = (trade.get("exit_at") or "")[:10]
+            exit_line = f"\n  [bold]Exit[/bold]         ${trade['exit_cost']:.2f}/contract  (closed {exit_at})"
+
+        type_color = "green" if trade["trade_type"] == "real" else "blue"
+        status_color = "cyan" if trade["status"] == "open" else "dim"
+
+        console.print(Panel(
+            f"  [bold]Contract[/bold]     {trade['ticker']} ${trade['strike']:g} "
+            f"{trade['side'].upper()} exp={trade['expiry']}\n"
+            f"  [bold]Type[/bold]         [{type_color}]{trade['trade_type'].upper()}[/{type_color}]\n"
+            f"  [bold]Status[/bold]       [{status_color}]{trade['status'].upper()}[/{status_color}]\n"
+            f"  [bold]Quantity[/bold]     {trade['quantity']} contract{'s' if trade['quantity'] > 1 else ''}\n"
+            f"  [bold]Entry[/bold]        ${trade['entry_cost']:.2f}/contract  "
+            f"(logged {logged_at})\n"
+            f"  [bold]Total invested[/bold]  ${trade['total_invested']:.2f}"
+            + exit_line + "\n"
+            f"  [bold]P&L[/bold]          {pnl_str}\n"
+            f"  [bold]LLM[/bold]          {trade.get('llm_provider') or '[dim]not specified[/dim]'}\n"
+            f"  [bold]Source[/bold]       {trade.get('source') or '—'}\n"
+            f"  [bold]Thesis[/bold]       {trade.get('thesis') or '—'}",
+            title=f"[bold cyan]Trade #{trade['id']} — Detail[/bold cyan]",
+            border_style="cyan",
+            padding=(1, 2),
+        ))
+        return
+
     # -----------------------------------------------------------------------
     # Fetch live prices for open trades
     # -----------------------------------------------------------------------
@@ -1787,7 +1837,7 @@ def _cmd_close_trade(args: argparse.Namespace) -> None:
         f"  [bold]ID[/bold]          #{updated['id']}\n"
         f"  [bold]Contract[/bold]    {updated['ticker']} ${updated['strike']:g} "
         f"{updated['side'].upper()} exp={updated['expiry']}\n"
-        f"  [bold]Type[/bold]        {updated['trade_type']}\n"
+        f"  [bold]Type[/bold]        {updated['trade_type'].upper()}\n"
         f"  [bold]Entry[/bold]       ${updated['entry_cost']:.2f}/contract\n"
         f"  [bold]Exit[/bold]        ${exit_cost:.2f}/contract\n"
         f"  [bold]Quantity[/bold]    {updated['quantity']}\n"
@@ -2154,6 +2204,8 @@ def main() -> None:
         port_ap.add_argument("--all",   action="store_true", help="Show open + closed history")
         port_ap.add_argument("--real",  action="store_true", help="Show real trades only")
         port_ap.add_argument("--paper", action="store_true", help="Show paper trades only")
+        port_ap.add_argument("--detail", type=int, default=None,
+                             help="Show full detail for a specific trade ID")
         port_args = port_ap.parse_args(sys.argv[2:])
         _cmd_portfolio(port_args)
         return
