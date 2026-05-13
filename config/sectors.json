@@ -311,13 +311,14 @@
       "name": "Energy infrastructure - new",
       "slug": "energy_infra",
       "leader": "SMR",
-      "leader_note": "SMR leads the nuclear/clean energy plays for AI power demand. EOSE is the battery storage angle. Both benefit from data center power demand.",
+      "leader_note": "SMR leads the nuclear/clean energy plays for AI power demand. EOSE is the battery storage angle. FCEL is the fuel cell play. All benefit from data center power demand and clean energy buildout.",
       "beta_to_leader": {
         "EOSE": 0.65,
         "CEG": 0.55,
         "VST": 0.5,
         "MP": 0.77,
-        "OKLO": 0.83
+        "OKLO": 0.83,
+        "FCEL": 0.38
       },
       "tickers": [
         "SMR",
@@ -325,7 +326,8 @@
         "CEG",
         "VST",
         "MP",
-        "OKLO"
+        "OKLO",
+        "FCEL"
       ],
       "correlated_sectors": [
         "ai_infra"
@@ -622,6 +624,7 @@
     "oracle corporation": "ORCL",
     "pdd holdings inc.": "PDD",
     "alibaba group holding limited": "BABA",
-    "cleanspark, inc.": "CLSK"
+    "cleanspark, inc.": "CLSK",
+    "fuelcell energy, inc.": "FCEL"
   }
 }

@@ -75,8 +75,14 @@ _INDUSTRY_MAP: dict[str, str] = {
     # Energy
     "uranium":                             "energy_infra",
     "nuclear":                             "energy_infra",
-    "oil & gas e&p":                       "energy_trad",   # OXY
-    "oil & gas integrated":                "energy_trad",   # XOM, CVX
+    "solar":                               "energy_infra",                # NEW
+    "renewable electricity":               "energy_infra",                # NEW
+    "electrical equipment & parts":        "energy_infra",                # NEW
+    "fuel cells":                          "energy_infra",                # NEW
+    "specialty industrial machinery":      "energy_infra",                # NEW — was robotics
+    "farm & heavy construction machinery": "robotics",                    # keep robotics for true industrial
+    "oil & gas e&p":                       "energy_trad",
+    "oil & gas integrated":                "energy_trad",
     "oil & gas midstream":                 "energy_trad",
 
     # Funds / ETFs

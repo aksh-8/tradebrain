@@ -76,7 +76,8 @@
     "ORCL",
     "PDD",
     "BABA",
-    "CLSK"
+    "CLSK",
+    "FCEL"
   ],
   "proxies": {
     "SPY": "IWM",
