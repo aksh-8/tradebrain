@@ -310,6 +310,81 @@ def _get_earnings_days_away(ticker: str) -> Optional[int]:
 
 
 # ---------------------------------------------------------------------------
+# Relative strength vs sector and market
+# ---------------------------------------------------------------------------
+
+def _compute_relative_strength(
+    ticker: str,
+    ticker_change_5d: Optional[float],
+) -> Optional[str]:
+    """
+    Compares ticker 5-day performance vs sector leader and SPY.
+    Returns a formatted string for display and LLM context.
+    """
+    if ticker_change_5d is None:
+        return None
+
+    from bot.correlations import get_sector
+    from bot.chain_yf import get_price_history
+
+    try:
+        # get sector leader
+        sector_info = get_sector(ticker)
+        leader = sector_info.leader if sector_info else "SPY"
+
+        # fetch leader 5d change
+        leader_hist = get_price_history(leader, period="5d")
+        if len(leader_hist) >= 2:
+            leader_change = (
+                (leader_hist[-1]["close"] - leader_hist[0]["close"])
+                / leader_hist[0]["close"] * 100
+            )
+        else:
+            leader_change = None
+
+        # fetch SPY 5d change
+        spy_hist = get_price_history("SPY", period="5d")
+        if len(spy_hist) >= 2:
+            spy_change = (
+                (spy_hist[-1]["close"] - spy_hist[0]["close"])
+                / spy_hist[0]["close"] * 100
+            )
+        else:
+            spy_change = None
+
+        lines = []
+
+        # vs sector leader
+        if leader_change is not None and leader != ticker:
+            diff = ticker_change_5d - leader_change
+            if abs(diff) < 1.0:
+                vs_leader = f"IN LINE with {leader} ({leader_change:+.1f}%)"
+            elif diff > 0:
+                vs_leader = f"OUTPERFORMING {leader} by {diff:.1f}pts ({leader_change:+.1f}% vs {ticker_change_5d:+.1f}%)"
+            else:
+                vs_leader = f"UNDERPERFORMING {leader} by {abs(diff):.1f}pts ({leader_change:+.1f}% vs {ticker_change_5d:+.1f}%)"
+            lines.append(f"vs sector leader: {vs_leader}")
+        elif leader == ticker:
+            lines.append(f"vs sector:        {ticker} IS the sector leader")
+
+        # vs SPY
+        if spy_change is not None:
+            diff_spy = ticker_change_5d - spy_change
+            if abs(diff_spy) < 0.5:
+                vs_spy = f"IN LINE with market ({spy_change:+.1f}%)"
+            elif diff_spy > 0:
+                vs_spy = f"OUTPERFORMING market by {diff_spy:.1f}pts (SPY {spy_change:+.1f}%)"
+            else:
+                vs_spy = f"UNDERPERFORMING market by {abs(diff_spy):.1f}pts (SPY {spy_change:+.1f}%)"
+            lines.append(f"vs market:        {vs_spy}")
+
+        return "\n".join(lines) if lines else None
+
+    except Exception:
+        return None
+
+
+# ---------------------------------------------------------------------------
 # IV rank proxy
 # ---------------------------------------------------------------------------
 
@@ -422,6 +497,7 @@ def _check_thesis(
     context_tickers: Optional[list[str]] = None,
     article_context: Optional[str] = None,
     technicals_block: Optional[str] = None,
+    relative_strength_note: Optional[str] = None,
 ) -> tuple[Optional[str], Optional[str], Direction, str]:
 
     use_gemini = _gemini_available()
@@ -485,6 +561,7 @@ def _check_thesis(
 - Earnings:       {f'in {earnings_days_away} days' if earnings_days_away is not None else 'unknown'}
 - Analyst view:   {analyst_note or 'unavailable'}
 - Options flow:   {unusual_activity or 'nothing unusual'}
+- Relative strength (5d): {relative_strength_note or 'not available'}
 - News headlines: {news_summary or 'none'}
 - News detail:    {article_context or 'headlines only — no full articles available'}
 {context_note}
@@ -633,6 +710,8 @@ def research_ticker(
 
     history         = get_price_history(ticker, period="1y")
     price_change_5d = _price_change_pct(history, 5)
+    # --- relative strength ---
+    rel_strength = _compute_relative_strength(ticker, price_change_5d)
     price_change_1m = _price_change_pct(history, 21)
 
     week_52_high: Optional[float] = None
@@ -689,6 +768,7 @@ def research_ticker(
         context_tickers    = context_tickers or [],
         article_context    = article_context,
         technicals_block   = technicals_block,
+        relative_strength_note = rel_strength,
     )
 
     skip_reason: Optional[str] = None
@@ -719,4 +799,5 @@ def research_ticker(
         recommended_direction= direction,
         confidence           = confidence,
         skip_reason          = skip_reason,
+        relative_strength_note = rel_strength,
     )

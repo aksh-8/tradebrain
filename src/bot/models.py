@@ -64,6 +64,7 @@ class ResearchResult:
     recommended_direction: Direction
     confidence: Literal["high", "medium", "low"]
     skip_reason: Optional[str]
+    relative_strength_note:   Optional[str] = None
 
 
 @dataclass(frozen=True)

@@ -45,13 +45,15 @@
       "beta_to_leader": {
         "SNDK": 0.85,
         "WDC": 0.8,
-        "STX": 0.7
+        "STX": 0.7,
+        "DRAM": 0.89
       },
       "tickers": [
         "MU",
         "SNDK",
         "WDC",
-        "STX"
+        "STX",
+        "DRAM"
       ],
       "correlated_sectors": [
         "semis_compute",
@@ -628,6 +630,8 @@
     "alibaba group holding limited": "BABA",
     "cleanspark, inc.": "CLSK",
     "fuelcell energy, inc.": "FCEL",
-    "cerebras systems inc. class a common stock": "CBRS"
+    "cerebras systems inc. class a common stock": "CBRS",
+    "roundhill memory etf": "DRAM",
+    "quantum computing inc.": "QUBT"
   }
 }

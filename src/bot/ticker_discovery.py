@@ -103,6 +103,10 @@ _INDUSTRY_MAP: dict[str, str] = {
     # Crypto
     "crypto":                              "crypto_miners",
     "bitcoin":                             "crypto_miners",
+
+    # Quantum computing
+    "quantum computing":    "quantum",
+    "quantum":              "quantum",
 }
 
 # default fallback — big_tech is safer than ai_software for true unknowns

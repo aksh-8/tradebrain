@@ -78,7 +78,9 @@
     "BABA",
     "CLSK",
     "FCEL",
-    "CBRS"
+    "CBRS",
+    "DRAM",
+    "QUBT"
   ],
   "proxies": {
     "SPY": "IWM",

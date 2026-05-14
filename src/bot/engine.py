@@ -81,10 +81,13 @@ def _dte_window(
     if earnings_days_away <= 30:
         dte_min = earnings_days_away + 7
         dte_max = max(dte_min + 45, base_max)
+        if earnings_days_away > 7:
+            pre_note = " Pre-earnings run-up contracts shown separately below."
+        else:
+            pre_note = f" Too close to earnings ({earnings_days_away}d) for a pre-earnings run-up play."
         return dte_min, dte_max, (
             f"Earnings in {earnings_days_away} days — "
-            f"showing POST-EARNINGS contracts as primary. "
-            f"Pre-earnings run-up contracts shown separately below."
+            f"showing POST-EARNINGS contracts as primary.{pre_note}"
         )
 
     return base_min, base_max, None

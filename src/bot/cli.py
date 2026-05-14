@@ -85,6 +85,19 @@ def _print_research(r: ResearchResult) -> None:
     if r.unusual_options_activity:
         lines.append("")
         lines.append(f"[bold]Options flow[/bold] [yellow]{r.unusual_options_activity}[/yellow]")
+    
+    # relative strength
+    if r.relative_strength_note:
+        lines.append("")
+        for rs_line in r.relative_strength_note.split("\n"):
+            strength_color = (
+                "green"  if "OUTPERFORMING" in rs_line
+                else "red"   if "UNDERPERFORMING" in rs_line
+                else "dim"
+            )
+            lines.append(
+                f"[bold]Rel strength[/bold] [{strength_color}]{rs_line.strip()}[/{strength_color}]"
+            )
 
     # news
     if r.news_summary:
