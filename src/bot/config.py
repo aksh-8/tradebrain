@@ -37,9 +37,11 @@ class Settings:
     ollama_url: str
     ollama_model: str
     ollama_timeout: int
-    bankroll_usd: float = 2000.0
+    bankroll_usd: float = 4000.0
+    paper_bankroll:  float = 10000.0
     llm_provider: str = "ollama"       # "gemini" | "ollama"
     gemini_api_key: str = ""      # empty string if not set
+    gemini_model:    str   = "gemini-2.5-flash"
 
 def get_settings() -> Settings:
     return Settings(
@@ -50,9 +52,11 @@ def get_settings() -> Settings:
         ollama_url         = os.getenv("OLLAMA_URL", "http://localhost:11434/api/generate"),
         ollama_model       = os.getenv("OLLAMA_MODEL", "qwen2.5:14b"),
         ollama_timeout     = int(os.getenv("OLLAMA_TIMEOUT", "120")),
-        bankroll_usd       = float(os.getenv("BANKROLL_USD", "1000").strip()),
+        bankroll_usd       = float(os.getenv("BANKROLL_USD", "4000").strip()),
+        paper_bankroll = float(os.getenv("PAPER_BANKROLL", "10000").strip()),
         llm_provider       = os.getenv("LLM_PROVIDER", "ollama").lower(),
         gemini_api_key     = os.getenv("GEMINI_API_KEY", ""),
+        gemini_model   = os.getenv("GEMINI_MODEL", "gemini-2.5-flash"),
     )
 
 

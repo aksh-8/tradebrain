@@ -393,10 +393,11 @@ def _call_gemini(prompt: str) -> str:
     """
     from google import genai
     from bot.config import get_settings
-    api_key = get_settings().gemini_api_key
+    s = get_settings()
+    api_key = s.gemini_api_key
     client = genai.Client(api_key=api_key)
     response = client.models.generate_content(
-        model    = "gemini-2.5-flash",
+        model    = s.gemini_model,
         contents = prompt,
     )
     return response.text

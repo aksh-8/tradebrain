@@ -1177,6 +1177,8 @@ def _cmd_log_trade(args: argparse.Namespace) -> None:
     tradebrain log-trade NVDA --strike 235 --expiry 2026-06-18 --side call --quantity 1 --real --source "tradebrain"
     """
     from bot.logger import log_paper_trade
+    from bot.logger import get_paper_account_summary, get_real_account_summary
+    from bot.config import get_settings
 
     ticker = args.ticker.upper().strip()
     strike = args.strike
@@ -1246,10 +1248,43 @@ def _cmd_log_trade(args: argparse.Namespace) -> None:
                 f"${entry_cost:.2f}/contract[/green]\n"
             )
 
+
+    total = entry_cost * qty
+
+    # -----------------------------------------------------------------------
+    # Buying power check
+    # -----------------------------------------------------------------------
+    if trade_type == "paper":
+        summary = get_paper_account_summary()
+        available = summary["available"]
+        if total > available:
+            console.print(
+                f"  [bold red]⛔ Insufficient paper buying power.[/bold red]\n"
+                f"  Available: [bold]${available:.2f}[/bold]  "
+                f"Cost: [bold]${total:.2f}[/bold]  "
+                f"Short by: [bold]${total - available:.2f}[/bold]\n"
+                f"  Close some positions or reduce quantity to free up capital.\n"
+            )
+            return
+        else:
+            console.print(
+                f"  [dim]Paper buying power: ${available:.2f} available → "
+                f"${available - total:.2f} after this trade[/dim]\n"
+            )
+    else:
+        # real trade — soft warning only
+        summary = get_real_account_summary()
+        available = summary["available"]
+        if total > available:
+            console.print(
+                f"  [yellow]⚠ This trade exceeds your tracked real buying power.\n"
+                f"  Tracked available: ${available:.2f}  |  Trade cost: ${total:.2f}\n"
+                f"  Logging anyway — update BANKROLL_USD in .env if your capital has changed.[/yellow]\n"
+            )
+
     # -----------------------------------------------------------------------
     # Log the trade
     # -----------------------------------------------------------------------
-    total = entry_cost * qty
     trade_id = log_paper_trade(
         ticker     = ticker,
         strike     = strike,
@@ -1393,6 +1428,69 @@ def _cmd_portfolio(args: argparse.Namespace) -> None:
                 live_prices[t["id"]] = price
                 if not market_open:
                     stale_ids.add(t["id"])
+
+    # -----------------------------------------------------------------------
+    # Account overview panels
+    # -----------------------------------------------------------------------
+    from bot.logger import get_paper_account_summary, get_real_account_summary
+    from bot.config import get_settings
+
+    paper_acct = get_paper_account_summary()
+    real_acct  = get_real_account_summary()
+
+    # compute total account values using live prices
+    paper_open_market_value = sum(
+        (live_prices.get(t["id"]) or t["entry_cost"]) * t["quantity"]
+        for t in open_trades if t["trade_type"] == "paper"
+    )
+    real_open_market_value = sum(
+        (live_prices.get(t["id"]) or t["entry_cost"]) * t["quantity"]
+        for t in open_trades if t["trade_type"] == "real"
+    )
+
+    paper_total_value = paper_acct["available"] + paper_open_market_value
+    real_total_value  = real_acct["available"]  + real_open_market_value
+
+    paper_return = ((paper_total_value - paper_acct["starting"]) / paper_acct["starting"] * 100)
+    real_return  = ((real_total_value  - real_acct["starting"])  / real_acct["starting"]  * 100) if real_acct["starting"] > 0 else 0
+
+    paper_avail_color = "green" if paper_acct["available"] > 0 else "red"
+    real_avail_color  = "green" if real_acct["available"]  > 0 else "red"
+    paper_ret_color   = "green" if paper_return >= 0 else "red"
+    real_ret_color    = "green" if real_return  >= 0 else "red"
+    paper_rpnl_color  = "green" if paper_acct["realized_pnl"] >= 0 else "red"
+    real_rpnl_color   = "green" if real_acct["realized_pnl"]  >= 0 else "red"
+
+    acct_lines = []
+
+    # paper account
+    acct_lines.append(
+        f"  [bold blue]📄 PAPER ACCOUNT[/bold blue]   "
+        f"Starting: [bold]${paper_acct['starting']:,.0f}[/bold]   "
+        f"Deployed: [bold]${paper_acct['deployed']:,.0f}[/bold] ({paper_acct['open_count']} positions)   "
+        f"Available: [{paper_avail_color}][bold]${paper_acct['available']:,.0f}[/bold][/{paper_avail_color}]   "
+        f"Realized P&L: [{paper_rpnl_color}]{'+' if paper_acct['realized_pnl'] >= 0 else ''}${paper_acct['realized_pnl']:,.0f}[/{paper_rpnl_color}]   "
+        f"Total value: [{paper_ret_color}][bold]${paper_total_value:,.0f}[/bold] ({'+' if paper_return >= 0 else ''}{paper_return:.1f}%)[/{paper_ret_color}]"
+    )
+
+    # real account — only show if there are real trades
+    if real_acct["open_count"] > 0 or real_acct["realized_pnl"] != 0:
+        acct_lines.append("")
+        acct_lines.append(
+            f"  [bold green]💵 REAL ACCOUNT[/bold green]   "
+            f"Bankroll: [bold]${real_acct['starting']:,.0f}[/bold]   "
+            f"Deployed: [bold]${real_acct['deployed']:,.0f}[/bold] ({real_acct['open_count']} positions)   "
+            f"Available: [{real_avail_color}][bold]${real_acct['available']:,.0f}[/bold][/{real_avail_color}]   "
+            f"Realized P&L: [{real_rpnl_color}]{'+' if real_acct['realized_pnl'] >= 0 else ''}${real_acct['realized_pnl']:,.0f}[/{real_rpnl_color}]   "
+            f"Total value: [{real_ret_color}][bold]${real_total_value:,.0f}[/bold] ({'+' if real_return >= 0 else ''}{real_return:.1f}%)[/{real_ret_color}]"
+        )
+
+    console.print(Panel(
+        "\n".join(acct_lines),
+        title="[bold]Account Overview[/bold]",
+        border_style="white",
+        padding=(1, 2),
+    ))
 
     # -----------------------------------------------------------------------
     # Open positions table

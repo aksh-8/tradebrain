@@ -331,3 +331,65 @@ def delete_paper_trade(trade_id: int) -> bool:
             "DELETE FROM paper_trades WHERE id = ?", (trade_id,)
         )
     return cur.rowcount > 0
+
+def get_paper_account_summary() -> dict:
+    """
+    Computes the full paper trading account state.
+    Returns dict with starting, deployed, available, realized_pnl, total_value.
+    """
+    from bot.config import get_settings
+    _init_paper_trades()
+    starting = get_settings().paper_bankroll
+
+    with _conn() as con:
+        open_trades   = con.execute(
+            "SELECT entry_cost, quantity FROM paper_trades "
+            "WHERE status='open' AND trade_type='paper'"
+        ).fetchall()
+        closed_trades = con.execute(
+            "SELECT pnl_dollars FROM paper_trades "
+            "WHERE status IN ('closed','expired') AND trade_type='paper'"
+        ).fetchall()
+
+    deployed     = sum(r["entry_cost"] * r["quantity"] for r in open_trades)
+    realized_pnl = sum(r["pnl_dollars"] or 0 for r in closed_trades)
+    available    = starting - deployed + realized_pnl
+
+    return {
+        "starting":     starting,
+        "deployed":     deployed,
+        "available":    available,
+        "realized_pnl": realized_pnl,
+        "open_count":   len(open_trades),
+    }
+
+
+def get_real_account_summary() -> dict:
+    """
+    Computes the real trading account state from logged real trades.
+    """
+    from bot.config import get_settings
+    _init_paper_trades()
+    starting = get_settings().bankroll_usd
+
+    with _conn() as con:
+        open_trades   = con.execute(
+            "SELECT entry_cost, quantity FROM paper_trades "
+            "WHERE status='open' AND trade_type='real'"
+        ).fetchall()
+        closed_trades = con.execute(
+            "SELECT pnl_dollars FROM paper_trades "
+            "WHERE status IN ('closed','expired') AND trade_type='real'"
+        ).fetchall()
+
+    deployed     = sum(r["entry_cost"] * r["quantity"] for r in open_trades)
+    realized_pnl = sum(r["pnl_dollars"] or 0 for r in closed_trades)
+    available    = starting - deployed + realized_pnl
+
+    return {
+        "starting":     starting,
+        "deployed":     deployed,
+        "available":    available,
+        "realized_pnl": realized_pnl,
+        "open_count":   len(open_trades),
+    }

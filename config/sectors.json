@@ -13,7 +13,8 @@
         "TSM": 0.7,
         "ARM": 0.8,
         "SMCI": 0.9,
-        "INTC": 0.4
+        "INTC": 0.4,
+        "CBRS": 0.5
       },
       "tickers": [
         "NVDA",
@@ -25,7 +26,8 @@
         "SMCI",
         "INTC",
         "ALAB",
-        "CRDO"
+        "CRDO",
+        "CBRS"
       ],
       "correlated_sectors": [
         "semis_equipment",
@@ -625,6 +627,7 @@
     "pdd holdings inc.": "PDD",
     "alibaba group holding limited": "BABA",
     "cleanspark, inc.": "CLSK",
-    "fuelcell energy, inc.": "FCEL"
+    "fuelcell energy, inc.": "FCEL",
+    "cerebras systems inc. class a common stock": "CBRS"
   }
 }
