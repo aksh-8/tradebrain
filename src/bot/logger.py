@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import json
 import sqlite3
 from datetime import datetime
@@ -10,9 +9,7 @@ from typing import Optional
 from bot.models import Intake, ResearchResult, Pick
 
 
-_DB_PATH = Path(os.getenv("TRADEBRAIN_DB_PATH", 
-    str(Path(__file__).parent.parent.parent / "trades" / "log.db")
-))
+_DB_PATH = Path(__file__).parent.parent.parent / "trades" / "log.db"
 
 def _conn() -> sqlite3.Connection:
     _DB_PATH.parent.mkdir(parents=True, exist_ok=True)
