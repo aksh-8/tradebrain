@@ -35,6 +35,8 @@ _SECTOR_MAP: dict[str, str] = {
     "consumer defensive":       "big_tech",
     "industrials":              "robotics",
     "basic materials":          "energy_infra",
+    "defense":                  "defense_aero",
+    "aerospace":                "defense_aero",
 }
 
 _INDUSTRY_MAP: dict[str, str] = {
@@ -107,6 +109,11 @@ _INDUSTRY_MAP: dict[str, str] = {
     # Quantum computing
     "quantum computing":    "quantum",
     "quantum":              "quantum",
+    
+    # Defense / aerospace — NEW
+    "aerospace & defense":           "defense_aero",
+    "defense":                       "defense_aero",
+    "drone":                         "defense_aero",
 }
 
 # default fallback — big_tech is safer than ai_software for true unknowns

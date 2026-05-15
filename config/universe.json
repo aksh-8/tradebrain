@@ -80,7 +80,9 @@
     "FCEL",
     "CBRS",
     "DRAM",
-    "QUBT"
+    "QUBT",
+    "ONDS",
+    "RCAT"
   ],
   "proxies": {
     "SPY": "IWM",
