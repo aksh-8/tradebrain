@@ -275,12 +275,14 @@
       "leader_note": "IONQ is now the most liquid and institutionally backed quantum name. RGTI and QBTS follow. All move on quantum news and NVIDIA comments about AI+quantum convergence.",
       "beta_to_leader": {
         "QBTS": 0.85,
-        "RGTI": 0.8
+        "RGTI": 0.8,
+        "QUBT": 0.75
       },
       "tickers": [
         "IONQ",
         "RGTI",
-        "QBTS"
+        "QBTS",
+        "QUBT"
       ],
       "correlated_sectors": [
         "semis_compute"
