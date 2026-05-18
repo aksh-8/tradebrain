@@ -15,7 +15,8 @@
         "SMCI": 0.9,
         "INTC": 0.4,
         "CBRS": 0.5,
-        "NVTS": 1.1
+        "NVTS": 1.1,
+        "MRAM": 1.0
       },
       "tickers": [
         "NVDA",
@@ -29,7 +30,8 @@
         "ALAB",
         "CRDO",
         "CBRS",
-        "NVTS"
+        "NVTS",
+        "MRAM"
       ],
       "correlated_sectors": [
         "semis_equipment",
@@ -138,7 +140,8 @@
         "TSLA": 0.4,
         "NOK": 0.1,
         "SNDK": 0.17,
-        "ORCL": 1.31
+        "ORCL": 1.31,
+        "AAOI": 0.1
       },
       "tickers": [
         "MSFT",
@@ -149,7 +152,8 @@
         "TSLA",
         "NOK",
         "SNDK",
-        "ORCL"
+        "ORCL",
+        "AAOI"
       ],
       "correlated_sectors": [
         "semis_compute",
@@ -157,6 +161,31 @@
       ],
       "macro_sensitivity": "medium",
       "risk_note": "Hyperscaler capex guidance (Azure, AWS, GCP growth %) is the single most important data point for the entire AI trade. Watch quarterly earnings closely."
+    },
+    {
+      "name": "Consumer retail",
+      "slug": "retail",
+      "leader": "WMT",
+      "leader_note": "WMT leads consumer retail sentiment. COST and TGT follow. Amazon is retail but trades as big tech. Primary drivers are consumer spending data, CPI, tariffs, and earnings.",
+      "beta_to_leader": {
+          "COST": 0.75,
+          "TGT": 0.8,
+          "HD": 0.7,
+          "LOW": 0.65
+      },
+      "tickers": [
+          "WMT",
+          "COST",
+          "TGT",
+          "HD",
+          "LOW"
+      ],
+      "correlated_sectors": [
+          "etfs",
+          "fintech"
+      ],
+      "macro_sensitivity": "high",
+      "risk_note": "Consumer spending data, CPI prints, and tariff headlines are primary catalysts. Tariffs hit margins directly — any trade war escalation moves this sector hard. Options liquidity is good on WMT, COST, HD. TGT spreads can be wide."
     },
     {
       "name": "AI software and productivity",
@@ -289,18 +318,24 @@
       "leader": "MARA",
       "leader_note": "MARA leads crypto miner sentiment. RIOT follows. BITF is more leveraged to BTC. All three correlate with BTC price AND power costs - same dual driver as AI infra.",
       "beta_to_leader": {
-        "RIOT": 0.9,
-        "BITF": 0.85,
-        "CORZ": 0.7
+          "RIOT": 0.9,
+          "BITF": 0.85,
+          "CORZ": 0.7,
+          "CLSK": 0.8,
+          "IREN": 0.75,
+          "CIFR": 0.7
       },
       "tickers": [
-        "MARA",
-        "RIOT",
-        "BITF",
-        "CORZ"
+          "MARA",
+          "RIOT",
+          "BITF",
+          "CORZ",
+          "CLSK",
+          "IREN",
+          "CIFR"
       ],
       "correlated_sectors": [
-        "ai_infra"
+          "ai_infra"
       ],
       "macro_sensitivity": "very_high",
       "risk_note": "BTC price is the primary driver. Secondary driver is power costs and regulatory news. Very high IV - buying options is expensive. Consider selling premium instead."
@@ -335,13 +370,15 @@
       "beta_to_leader": {
         "QQQ": 1.2,
         "IWM": 0.85,
-        "DIA": 0.8
+        "DIA": 0.8,
+        "SMH": 2.0
       },
       "tickers": [
         "SPY",
         "QQQ",
         "IWM",
-        "DIA"
+        "DIA",
+        "SMH"
       ],
       "correlated_sectors": [
         "big_tech",
@@ -349,6 +386,21 @@
       ],
       "macro_sensitivity": "medium",
       "risk_note": "QQQ/SPY ratio is a useful tech sentiment gauge. QQQ outperforming = risk-on tech. QQQ underperforming = rotation to value."
+    },
+    {
+      "name": "Banks and financials",
+      "slug": "banks",
+      "leader": "JPM",
+      "leader_note": "JPM leads bank sentiment. BAC and WFC follow. Rate decisions and yield curve are primary drivers.",
+      "beta_to_leader": {
+          "BAC": 0.85,
+          "WFC": 0.8,
+          "GS": 0.9
+      },
+      "tickers": ["JPM", "BAC", "WFC", "GS"],
+      "correlated_sectors": ["fintech"],
+      "macro_sensitivity": "very_high",
+      "risk_note": "Rate sensitive — Fed decisions move the whole group. Trade around FOMC meetings and earnings."
     },
     {
       "name": "Energy infrastructure - new",
@@ -363,7 +415,8 @@
         "OKLO": 0.83,
         "FCEL": 0.38,
         "USAR": 0.68,
-        "HGRAF": 0.36
+        "HGRAF": 0.36,
+        "FSLR": 0.13
       },
       "tickers": [
         "SMR",
@@ -374,7 +427,8 @@
         "OKLO",
         "FCEL",
         "USAR",
-        "HGRAF"
+        "HGRAF",
+        "FSLR"
       ],
       "correlated_sectors": [
         "ai_infra"
@@ -414,14 +468,12 @@
         "HOOD",
         "COIN",
         "SOFI",
-        "AFRM",
-        "CLSK"
+        "AFRM"
       ],
       "beta_to_leader": {
         "HOOD": 0.67,
         "SOFI": 0.46,
-        "AFRM": 1.2,
-        "CLSK": 0.51
+        "AFRM": 1.2
       },
       "cross_sector_signals": [],
       "correlated_sectors": [
@@ -458,12 +510,14 @@
       "leader": "META",
       "leader_note": "META leads social/consumer internet. SNAP and PINS are high-beta followers. Ad market conditions drive the whole group.",
       "beta_to_leader": {
-        "SNAP": 0.92
+        "SNAP": 0.92,
+        "BIDU": 0.32
       },
       "tickers": [
         "SNAP",
         "PINS",
-        "RDDT"
+        "RDDT",
+        "BIDU"
       ],
       "correlated_sectors": [
         "big_tech",
@@ -500,7 +554,10 @@
       "slug": "energy_trad",
       "leader": "XOM",
       "leader_note": "XOM leads traditional energy. OXY and CVX follow. Oil price and production data are the primary drivers.",
-      "beta_to_leader": {},
+      "beta_to_leader": {
+        "CVX": 0.73,
+        "XOM": 1.0
+      },
       "tickers": [
         "XOM",
         "OXY",
@@ -683,6 +740,17 @@
     "redwire corporation": "RDW",
     "navitas semiconductor corporation": "NVTS",
     "navitas semiconductor corporati": "NVTS",
-    "firefly aerospace inc.": "FLY"
+    "firefly aerospace inc.": "FLY",
+    "costco wholesale corporation": "COST",
+    "bank of america corporation": "BAC",
+    "chevron corporation": "CVX",
+    "exxon mobil corporation": "XOM",
+    "first solar, inc.": "FSLR",
+    "baidu, inc.": "BIDU",
+    "vaneck semiconductor etf": "SMH",
+    "cipher digital inc.": "CIFR",
+    "everspin technologies, inc.": "MRAM",
+    "iren limited": "IREN",
+    "applied optoelectronics, inc.": "AAOI"
   }
 }

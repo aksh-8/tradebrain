@@ -90,7 +90,18 @@
     "FIG",
     "RDW",
     "NVTS",
-    "FLY"
+    "FLY",
+    "COST",
+    "BAC",
+    "CVX",
+    "XOM",
+    "FSLR",
+    "BIDU",
+    "SMH",
+    "CIFR",
+    "MRAM",
+    "IREN",
+    "AAOI"
   ],
   "proxies": {
     "SPY": "IWM",
