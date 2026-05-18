@@ -2416,9 +2416,7 @@ def main() -> None:
         from bot.models import Intake
         intake = Intake(
             raw_text        = intake.raw_text,
-            tickers         = (args.ticker.upper(),) + tuple(
-                t for t in intake.tickers if t != args.ticker.upper()
-            ),
+            tickers         = (args.ticker.upper(),),  # only the explicit ticker
             context_tickers = intake.context_tickers,
             direction       = intake.direction,
             thesis          = intake.thesis,

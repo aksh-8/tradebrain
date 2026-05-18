@@ -82,7 +82,8 @@
     "DRAM",
     "QUBT",
     "ONDS",
-    "RCAT"
+    "RCAT",
+    "USAR"
   ],
   "proxies": {
     "SPY": "IWM",

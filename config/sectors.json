@@ -186,21 +186,21 @@
       "leader": "CRWD",
       "leader_note": "CRWD leads the cyber cluster. PANW is the large-cap anchor. S (SentinelOne) is the AI-native challenger. ZS and FTNT follow. Cyber is more defensive than pure AI plays.",
       "beta_to_leader": {
-          "S": 0.85,
-          "PANW": 0.75,
-          "ZS": 0.8,
-          "FTNT": 0.65
+        "S": 0.85,
+        "PANW": 0.75,
+        "ZS": 0.8,
+        "FTNT": 0.65
       },
       "tickers": [
-          "CRWD",
-          "S",
-          "PANW",
-          "ZS",
-          "FTNT"
+        "CRWD",
+        "S",
+        "PANW",
+        "ZS",
+        "FTNT"
       ],
       "correlated_sectors": [
-          "big_tech",
-          "ai_software"
+        "big_tech",
+        "ai_software"
       ],
       "macro_sensitivity": "low",
       "risk_note": "Cybersecurity is defensive — tends to hold up better in risk-off moves. Budget cycles and breach headlines are primary catalysts. S specifically has had fundamentals-vs-price disconnect — buy thesis needs a catalyst."
@@ -236,21 +236,21 @@
       "leader": "RTX",
       "leader_note": "RTX leads defense sentiment. ONDS and RCAT are the speculative drone plays — high beta to defense spending news and conflict escalation.",
       "beta_to_leader": {
-          "LMT": 0.75,
-          "NOC": 0.7,
-          "ONDS": 0.45,
-          "RCAT": 0.5
+        "LMT": 0.75,
+        "NOC": 0.7,
+        "ONDS": 0.45,
+        "RCAT": 0.5
       },
       "tickers": [
-          "RTX",
-          "LMT",
-          "NOC",
-          "ONDS",
-          "RCAT"
+        "RTX",
+        "LMT",
+        "NOC",
+        "ONDS",
+        "RCAT"
       ],
       "correlated_sectors": [
-          "robotics",
-          "ai_software"
+        "robotics",
+        "ai_software"
       ],
       "macro_sensitivity": "medium",
       "risk_note": "Defense moves on geopolitical headlines and government budget news. Drone names (ONDS, RCAT) are high-beta speculative plays within the sector — size small."
@@ -351,7 +351,8 @@
         "VST": 0.5,
         "MP": 0.77,
         "OKLO": 0.83,
-        "FCEL": 0.38
+        "FCEL": 0.38,
+        "USAR": 0.68
       },
       "tickers": [
         "SMR",
@@ -360,7 +361,8 @@
         "VST",
         "MP",
         "OKLO",
-        "FCEL"
+        "FCEL",
+        "USAR"
       ],
       "correlated_sectors": [
         "ai_infra"
@@ -638,6 +640,7 @@
     "roundhill memory etf": "DRAM",
     "quantum computing inc.": "QUBT",
     "ondas inc.": "ONDS",
-    "ondas inc": "ONDS"
+    "ondas inc": "ONDS",
+    "usa rare earth, inc.": "USAR"
   }
 }
