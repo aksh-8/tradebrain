@@ -83,7 +83,14 @@
     "QUBT",
     "ONDS",
     "RCAT",
-    "USAR"
+    "USAR",
+    "HGRAF",
+    "QNTM",
+    "ASTS",
+    "FIG",
+    "RDW",
+    "NVTS",
+    "FLY"
   ],
   "proxies": {
     "SPY": "IWM",

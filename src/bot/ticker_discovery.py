@@ -114,6 +114,11 @@ _INDUSTRY_MAP: dict[str, str] = {
     "aerospace & defense":           "defense_aero",
     "defense":                       "defense_aero",
     "drone":                         "defense_aero",
+
+    # Space
+    "space":                  "space",
+    "satellite":              "space",
+    "launch services":        "space",
 }
 
 # default fallback — big_tech is safer than ai_software for true unknowns
@@ -128,9 +133,13 @@ def _classify_sector(info: dict) -> str:
     sector   = (info.get("sector")   or "").lower().strip()
     industry = (info.get("industry") or "").lower().strip()
 
+    # normalize dashes for consistent matching
+    industry_n = industry.replace("—", "-").replace("–", "-").replace("  ", " ")
+
     # industry is more specific — check first
     for key, slug in _INDUSTRY_MAP.items():
-        if key in industry:
+        key_n = key.replace("—", "-").replace("–", "-")
+        if key_n in industry_n:
             return slug
 
     # sector map — but skip consumer cyclical (too broad, goes to LLM)

@@ -14,7 +14,8 @@
         "ARM": 0.8,
         "SMCI": 0.9,
         "INTC": 0.4,
-        "CBRS": 0.5
+        "CBRS": 0.5,
+        "NVTS": 1.1
       },
       "tickers": [
         "NVDA",
@@ -27,7 +28,8 @@
         "INTC",
         "ALAB",
         "CRDO",
-        "CBRS"
+        "CBRS",
+        "NVTS"
       ],
       "correlated_sectors": [
         "semis_equipment",
@@ -165,14 +167,16 @@
         "CRM": 0.65,
         "SOUN": 0.7,
         "BBAI": 0.65,
-        "ZETA": 0.55
+        "ZETA": 0.55,
+        "FIG": 1.28
       },
       "tickers": [
         "PLTR",
         "CRM",
         "SOUN",
         "BBAI",
-        "ZETA"
+        "ZETA",
+        "FIG"
       ],
       "correlated_sectors": [
         "big_tech"
@@ -239,14 +243,18 @@
         "LMT": 0.75,
         "NOC": 0.7,
         "ONDS": 0.45,
-        "RCAT": 0.5
+        "RCAT": 0.5,
+        "RDW": 0.34,
+        "FLY": 0.99
       },
       "tickers": [
         "RTX",
         "LMT",
         "NOC",
         "ONDS",
-        "RCAT"
+        "RCAT",
+        "RDW",
+        "FLY"
       ],
       "correlated_sectors": [
         "robotics",
@@ -262,12 +270,14 @@
       "leader_note": "HIMS leads the high-growth healthtech cluster. OSCR follows. UNH is a large-cap traditional insurer - inverse correlation to HIMS on policy news.",
       "beta_to_leader": {
         "OSCR": 0.75,
-        "UNH": -0.3
+        "UNH": -0.3,
+        "QNTM": 0.1
       },
       "tickers": [
         "HIMS",
         "OSCR",
-        "UNH"
+        "UNH",
+        "QNTM"
       ],
       "correlated_sectors": [],
       "macro_sensitivity": "low",
@@ -352,7 +362,8 @@
         "MP": 0.77,
         "OKLO": 0.83,
         "FCEL": 0.38,
-        "USAR": 0.68
+        "USAR": 0.68,
+        "HGRAF": 0.36
       },
       "tickers": [
         "SMR",
@@ -362,7 +373,8 @@
         "MP",
         "OKLO",
         "FCEL",
-        "USAR"
+        "USAR",
+        "HGRAF"
       ],
       "correlated_sectors": [
         "ai_infra"
@@ -499,6 +511,29 @@
       ],
       "macro_sensitivity": "medium",
       "risk_note": "Oil macro drives the sector — WTI price, OPEC decisions, inventory data. Lower volatility than AI names. Better for defined-risk plays with wider DTE."
+    },
+    {
+      "name": "Space and satellite",
+      "slug": "space",
+      "leader": "RKLB",
+      "leader_note": "RKLB leads the commercial space cluster. ASTS is the satellite connectivity play. Both move on launch success/failure news and SpaceX competition.",
+      "beta_to_leader": {
+        "ASTS": 0.65,
+        "SPCE": 0.55,
+        "MNTS": 0.5
+      },
+      "tickers": [
+        "RKLB",
+        "ASTS",
+        "SPCE",
+        "MNTS"
+      ],
+      "correlated_sectors": [
+        "defense_aero",
+        "ai_infra"
+      ],
+      "macro_sensitivity": "high",
+      "risk_note": "Pure speculation tier. Moves on launch events, contract wins, and SpaceX competition headlines. RKLB is the most liquid — use as proxy. Wide options spreads expected."
     }
   ],
   "cross_sector_signals": [
@@ -641,6 +676,13 @@
     "quantum computing inc.": "QUBT",
     "ondas inc.": "ONDS",
     "ondas inc": "ONDS",
-    "usa rare earth, inc.": "USAR"
+    "usa rare earth, inc.": "USAR",
+    "hydrograph clean power inc.": "HGRAF",
+    "quantum biopharma ltd.": "QNTM",
+    "figma, inc.": "FIG",
+    "redwire corporation": "RDW",
+    "navitas semiconductor corporation": "NVTS",
+    "navitas semiconductor corporati": "NVTS",
+    "firefly aerospace inc.": "FLY"
   }
 }
