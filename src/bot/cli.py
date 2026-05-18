@@ -491,17 +491,59 @@ def _print_contract_detail(
         )
         lines.append("")
 
-    lines.append("[bold]Return targets at expiry:[/bold]")
-    for mult, label in [(2, "2x "), (3, "3x "), (5, "5x "), (10, "10x")]:
-        target_val = m * mult
-        t_price    = contract.strike + target_val if side == "call" else contract.strike - target_val
-        t_pct      = (t_price - spot) / spot * 100 if spot > 0 else 0
-        lines.append(f"  {label} → {ticker} at ${t_price:.2f}  ({t_pct:+.1f}%)")
-    lines.append("")
-    lines.append(
-        "[dim]Note: these are expiry targets. You can exit early for profit "
-        "if momentum carries the contract value higher before expiry.[/dim]"
-    )
+    # Monte Carlo return probabilities
+    from bot.bs import monte_carlo_probs
+    mc = {}
+    if contract.iv and contract.iv > 0 and spot > 0 and m > 0:
+        mc = monte_carlo_probs(
+            spot     = spot,
+            strike   = contract.strike,
+            dte      = dte_days,
+            iv       = contract.iv,
+            side     = side,
+            premium  = m,
+            n_sims   = 1000, # change this to 10,000 for more accuracy but slower performance
+        )
+
+    if mc:
+        lines.append("[bold]Return probabilities[/bold] [dim](1,000 GBM simulations)[/dim]")
+        for mult, key_p, key_t in [
+            ("2x",  "p2x",  "target2x"),
+            ("3x",  "p3x",  "target3x"),
+            ("5x",  "p5x",  "target5x"),
+            ("10x", "p10x", "target10x"),
+        ]:
+            prob    = mc[key_p]
+            target  = mc[key_t]
+            t_pct   = (target - spot) / spot * 100 if spot > 0 else 0
+            p_pct   = prob * 100
+            p_color = (
+                "green"  if p_pct >= 20 else
+                "yellow" if p_pct >= 10 else
+                "red"
+            )
+            lines.append(
+                f"  {mult:<4} [{p_color}]P={p_pct:.0f}%[/{p_color}]"
+                f"  → {ticker} at ${target:.2f}  ({t_pct:+.1f}%)"
+            )
+        lines.append("")
+        lines.append(
+            "[dim]Probabilities are at expiry. Exit early to lock in gains "
+            "before time decay erodes value.[/dim]"
+        )
+    else:
+        # fallback to static targets if MC fails
+        lines.append("[bold]Return targets at expiry:[/bold]")
+        for mult, label in [(2, "2x "), (3, "3x "), (5, "5x "), (10, "10x")]:
+            target_val = m * mult
+            t_price    = contract.strike + target_val if side == "call" else contract.strike - target_val
+            t_pct      = (t_price - spot) / spot * 100 if spot > 0 else 0
+            lines.append(f"  {label} → {ticker} at ${t_price:.2f}  ({t_pct:+.1f}%)")
+        lines.append("")
+        lines.append(
+            "[dim]Note: these are expiry targets. You can exit early for profit "
+            "if momentum carries the contract value higher before expiry.[/dim]"
+        )
 
     console.print(Panel(
         "\n".join(l for l in lines if l is not None),

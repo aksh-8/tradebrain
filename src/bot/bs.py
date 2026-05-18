@@ -222,3 +222,107 @@ def kelly_size(
         "max_contracts":  max_contracts,
         "verdict":        verdict,
     }
+
+def _standard_normal() -> float:
+    """
+    Box-Muller transform — standard normal sample.
+    No numpy needed, pure Python math + random.
+    """
+    import random
+    while True:
+        u1 = random.random()
+        u2 = random.random()
+        if u1 > 0:
+            break
+    return math.sqrt(-2.0 * math.log(u1)) * math.cos(2.0 * math.pi * u2)
+
+
+def monte_carlo_probs(
+    spot: float,
+    strike: float,
+    dte: int,
+    iv: float,
+    side: str,
+    premium: float,
+    n_sims: int = 1000,
+    risk_free_rate: float = 0.05,
+) -> dict:
+    """
+    Monte Carlo simulation using Geometric Brownian Motion.
+
+    Simulates n_sims possible stock price paths to expiry and computes
+    the probability of achieving 2x, 3x, 5x, 10x contract returns.
+
+    Args:
+      spot     — current stock price
+      strike   — option strike price
+      dte      — days to expiration
+      iv       — annualized volatility as decimal (e.g. 0.45 for 45%)
+      side     — "call" | "put"
+      premium  — option mid price per share (not per contract)
+      n_sims   — number of simulations (default 1000, fast enough)
+      risk_free_rate — annualized risk-free rate (default 5%)
+
+    Returns dict with:
+      p2x, p3x, p5x, p10x — probabilities as floats (0.0-1.0)
+      target2x ... target10x — stock price needed for each multiple
+      n_sims — number of simulations run
+    """
+    if dte <= 0 or iv <= 0 or spot <= 0 or strike <= 0 or premium <= 0:
+        return {}
+
+    T = dte / 365.0
+    drift = (risk_free_rate - 0.5 * iv ** 2) * T
+    diffusion = iv * math.sqrt(T)
+
+    # thresholds — contract value needed for each multiple
+    threshold_2x  = premium * 2.0
+    threshold_3x  = premium * 3.0
+    threshold_5x  = premium * 5.0
+    threshold_10x = premium * 10.0
+
+    count_2x = count_3x = count_5x = count_10x = 0
+
+    for _ in range(n_sims):
+        z = _standard_normal()
+        # GBM: S(T) = S(0) * exp(drift + diffusion * Z)
+        s_T = spot * math.exp(drift + diffusion * z)
+
+        # option value at expiry
+        if side == "call":
+            value = max(0.0, s_T - strike)
+        else:
+            value = max(0.0, strike - s_T)
+
+        if value >= threshold_2x:
+            count_2x += 1
+        if value >= threshold_3x:
+            count_3x += 1
+        if value >= threshold_5x:
+            count_5x += 1
+        if value >= threshold_10x:
+            count_10x += 1
+
+    # stock price targets for each multiple (at expiry, ignoring time value)
+    if side == "call":
+        target_2x  = strike + threshold_2x
+        target_3x  = strike + threshold_3x
+        target_5x  = strike + threshold_5x
+        target_10x = strike + threshold_10x
+    else:
+        target_2x  = strike - threshold_2x
+        target_3x  = strike - threshold_3x
+        target_5x  = strike - threshold_5x
+        target_10x = strike - threshold_10x
+
+    return {
+        "p2x":      round(count_2x  / n_sims, 3),
+        "p3x":      round(count_3x  / n_sims, 3),
+        "p5x":      round(count_5x  / n_sims, 3),
+        "p10x":     round(count_10x / n_sims, 3),
+        "target2x":  round(target_2x,  2),
+        "target3x":  round(target_3x,  2),
+        "target5x":  round(target_5x,  2),
+        "target10x": round(target_10x, 2),
+        "n_sims":   n_sims,
+    }
