@@ -1374,6 +1374,52 @@ def _cmd_log_trade(args: argparse.Namespace) -> None:
         f"Close with: [bold]tradebrain close-trade {trade_id} --exit-cost PRICE[/bold][/dim]\n"
     )
 
+def _cmd_portfolio_live(args: argparse.Namespace) -> None:
+    """
+    tradebrain portfolio --live
+    Refreshes every 2 minutes. Press Ctrl+C to exit.
+    """
+    import time
+    from datetime import datetime
+
+    REFRESH_SECONDS = 120
+
+    console.print(
+        "\n[bold cyan]tradebrain portfolio — LIVE[/bold cyan]  "
+        "[dim]Refreshes every 2 min. Press Ctrl+C to exit.[/dim]\n"
+    )
+
+    try:
+        while True:
+            # clear screen
+            console.clear()
+
+            # print timestamp header
+            now = datetime.now().strftime("%H:%M:%S")
+            console.print(
+                f"\n[bold cyan]tradebrain portfolio — LIVE[/bold cyan]  "
+                f"[dim]Last refresh: {now}  |  "
+                f"Next in: 2:00  |  Ctrl+C to exit[/dim]\n"
+            )
+
+            # run full portfolio display
+            _cmd_portfolio(args)
+
+            # wait 2 minutes with a simple countdown printed
+            for remaining in range(REFRESH_SECONDS, 0, -1):
+                mins = remaining // 60
+                secs = remaining % 60
+                # use sys.stdout directly for carriage return control
+                import sys
+                sys.stdout.write(f"\r  Next refresh in {mins}:{secs:02d}...  ")
+                sys.stdout.flush()
+                time.sleep(1)
+
+            sys.stdout.write("\r" + " " * 40 + "\r")  # clear the line
+            sys.stdout.flush()
+
+    except KeyboardInterrupt:
+        console.print("\n\n[dim]Live view stopped.[/dim]\n")
 
 def _cmd_portfolio(args: argparse.Namespace) -> None:
     """
@@ -2354,13 +2400,17 @@ def main() -> None:
     # route portfolio command
     if len(sys.argv) > 1 and sys.argv[1] == "portfolio":
         port_ap = argparse.ArgumentParser(prog="tradebrain portfolio")
-        port_ap.add_argument("--all",   action="store_true", help="Show open + closed history")
-        port_ap.add_argument("--real",  action="store_true", help="Show real trades only")
-        port_ap.add_argument("--paper", action="store_true", help="Show paper trades only")
-        port_ap.add_argument("--detail", type=int, default=None,
-                             help="Show full detail for a specific trade ID")
+        port_ap.add_argument("--all",    action="store_true")
+        port_ap.add_argument("--real",   action="store_true")
+        port_ap.add_argument("--paper",  action="store_true")
+        port_ap.add_argument("--detail", type=int, default=None)
+        port_ap.add_argument("--live",   action="store_true",
+                             help="Live view — refreshes every 2 minutes")
         port_args = port_ap.parse_args(sys.argv[2:])
-        _cmd_portfolio(port_args)
+        if port_args.live:
+            _cmd_portfolio_live(port_args)
+        else:
+            _cmd_portfolio(port_args)
         return
 
     # route close-trade command
