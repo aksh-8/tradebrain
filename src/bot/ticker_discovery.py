@@ -58,8 +58,10 @@ _INDUSTRY_MAP: dict[str, str] = {
 
     # Social / Consumer internet — NEW
     "internet content & information":      "social_media",
-    "entertainment":                       "social_media",
-    "media":                               "social_media",
+    "entertainment":                       "entertainment",  # was social_media — wrong
+    "media":                               "entertainment",  # was social_media — wrong
+    "advertising agencies":                "ai_software",    # TTD, ZETA — ad tech platforms
+
 
     # China ADRs tend to be e-commerce/consumer — NEW
     "internet retail":                     "china_adr",
@@ -119,6 +121,12 @@ _INDUSTRY_MAP: dict[str, str] = {
     "space":                  "space",
     "satellite":              "space",
     "launch services":        "space",
+
+    "travel services":          "travel",
+    "lodging":                  "travel",
+    "resorts & casinos":        "travel",
+    "airlines":                 "travel",
+    "rental & leasing services": "travel",
 }
 
 # default fallback — big_tech is safer than ai_software for true unknowns

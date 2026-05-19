@@ -198,7 +198,8 @@
         "BBAI": 0.65,
         "ZETA": 0.55,
         "FIG": 1.28,
-        "SHOP": 0.86
+        "SHOP": 0.86,
+        "TTD": 0.75
       },
       "tickers": [
         "PLTR",
@@ -207,7 +208,8 @@
         "BBAI",
         "ZETA",
         "FIG",
-        "SHOP"
+        "SHOP",
+        "TTD"
       ],
       "correlated_sectors": [
         "big_tech"
@@ -315,6 +317,31 @@
       "risk_note": "UNH and HIMS can move inversely on healthcare policy news. Treat as separate trades. HIMS is a momentum name - high IV, moves fast."
     },
     {
+      "name": "Entertainment and media",
+      "slug": "entertainment",
+      "leader": "NFLX",
+      "leader_note": "NFLX leads streaming sentiment. DIS follows with theme park and studio exposure. Both move on subscriber data and content pipeline news.",
+      "beta_to_leader": {
+        "DIS": 0.55,
+        "WBD": 0.65,
+        "PARA": 0.6,
+        "CMCSA": 0.45
+      },
+      "tickers": [
+        "NFLX",
+        "DIS",
+        "WBD",
+        "PARA",
+        "CMCSA"
+      ],
+      "correlated_sectors": [
+        "retail",
+        "big_tech"
+      ],
+      "macro_sensitivity": "medium",
+      "risk_note": "Subscriber growth and content spend are primary drivers. Streaming wars compress margins. DIS has theme park exposure which adds consumer spending sensitivity."
+    },
+    {
       "name": "Crypto miners and power plays",
       "slug": "crypto_miners",
       "leader": "MARA",
@@ -373,18 +400,21 @@
         "QQQ": 1.2,
         "IWM": 0.85,
         "DIA": 0.8,
-        "SMH": 2.0
+        "SMH": 2.0,
+        "KWEB": 1.34
       },
       "tickers": [
         "SPY",
         "QQQ",
         "IWM",
         "DIA",
-        "SMH"
+        "SMH",
+        "KWEB"
       ],
       "correlated_sectors": [
         "big_tech",
-        "semis_compute"
+        "semis_compute",
+        "china_adr"
       ],
       "macro_sensitivity": "medium",
       "risk_note": "QQQ/SPY ratio is a useful tech sentiment gauge. QQQ outperforming = risk-on tech. QQQ underperforming = rotation to value."
@@ -410,6 +440,35 @@
       ],
       "macro_sensitivity": "very_high",
       "risk_note": "Rate sensitive — Fed decisions move the whole group. Trade around FOMC meetings and earnings."
+    },
+    {
+      "name": "Travel and leisure",
+      "slug": "travel",
+      "leader": "BKNG",
+      "leader_note": "BKNG leads online travel sentiment. ABNB follows. Both move on travel demand data, consumer spending strength, and summer/holiday booking trends.",
+      "beta_to_leader": {
+        "ABNB": 0.85,
+        "EXPE": 0.8,
+        "UBER": 0.7,
+        "LYFT": 0.75,
+        "MAR": 0.6,
+        "HLT": 0.55
+      },
+      "tickers": [
+        "BKNG",
+        "ABNB",
+        "EXPE",
+        "UBER",
+        "LYFT",
+        "MAR",
+        "HLT"
+      ],
+      "correlated_sectors": [
+        "retail",
+        "big_tech"
+      ],
+      "macro_sensitivity": "high",
+      "risk_note": "Consumer spending and travel demand are primary drivers. Macro slowdown fears hit this sector hard. Summer booking data and airline capacity are leading indicators."
     },
     {
       "name": "Energy infrastructure - new",
@@ -498,7 +557,8 @@
       "leader_note": "TSLA leads EV sentiment globally. RIVN and NIO follow with higher beta. GM/F are traditional auto proxies with lower beta.",
       "beta_to_leader": {
         "RIVN": 0.38,
-        "NIO": 0.32
+        "NIO": 0.32,
+        "F": 0.49
       },
       "tickers": [
         "RIVN",
@@ -761,6 +821,14 @@
     "everspin technologies, inc.": "MRAM",
     "iren limited": "IREN",
     "applied optoelectronics, inc.": "AAOI",
-    "shopify inc.": "SHOP"
+    "shopify inc.": "SHOP",
+    "the walt disney company": "DIS",
+    "walt disney company (the)": "DIS",
+    "booking holdings inc.": "BKNG",
+    "booking holdings inc. common st": "BKNG",
+    "the trade desk, inc.": "TTD",
+    "kraneshares csi china internet etf": "KWEB",
+    "kraneshares csi china internet": "KWEB",
+    "ford motor company": "F"
   }
 }

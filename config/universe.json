@@ -102,7 +102,12 @@
     "MRAM",
     "IREN",
     "AAOI",
-    "SHOP"
+    "SHOP",
+    "DIS",
+    "BKNG",
+    "TTD",
+    "KWEB",
+    "F"
   ],
   "proxies": {
     "SPY": "IWM",
