@@ -101,7 +101,8 @@
     "CIFR",
     "MRAM",
     "IREN",
-    "AAOI"
+    "AAOI",
+    "SHOP"
   ],
   "proxies": {
     "SPY": "IWM",

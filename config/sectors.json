@@ -168,21 +168,21 @@
       "leader": "WMT",
       "leader_note": "WMT leads consumer retail sentiment. COST and TGT follow. Amazon is retail but trades as big tech. Primary drivers are consumer spending data, CPI, tariffs, and earnings.",
       "beta_to_leader": {
-          "COST": 0.75,
-          "TGT": 0.8,
-          "HD": 0.7,
-          "LOW": 0.65
+        "COST": 0.75,
+        "TGT": 0.8,
+        "HD": 0.7,
+        "LOW": 0.65
       },
       "tickers": [
-          "WMT",
-          "COST",
-          "TGT",
-          "HD",
-          "LOW"
+        "WMT",
+        "COST",
+        "TGT",
+        "HD",
+        "LOW"
       ],
       "correlated_sectors": [
-          "etfs",
-          "fintech"
+        "etfs",
+        "fintech"
       ],
       "macro_sensitivity": "high",
       "risk_note": "Consumer spending data, CPI prints, and tariff headlines are primary catalysts. Tariffs hit margins directly — any trade war escalation moves this sector hard. Options liquidity is good on WMT, COST, HD. TGT spreads can be wide."
@@ -197,7 +197,8 @@
         "SOUN": 0.7,
         "BBAI": 0.65,
         "ZETA": 0.55,
-        "FIG": 1.28
+        "FIG": 1.28,
+        "SHOP": 0.86
       },
       "tickers": [
         "PLTR",
@@ -205,7 +206,8 @@
         "SOUN",
         "BBAI",
         "ZETA",
-        "FIG"
+        "FIG",
+        "SHOP"
       ],
       "correlated_sectors": [
         "big_tech"
@@ -318,24 +320,24 @@
       "leader": "MARA",
       "leader_note": "MARA leads crypto miner sentiment. RIOT follows. BITF is more leveraged to BTC. All three correlate with BTC price AND power costs - same dual driver as AI infra.",
       "beta_to_leader": {
-          "RIOT": 0.9,
-          "BITF": 0.85,
-          "CORZ": 0.7,
-          "CLSK": 0.8,
-          "IREN": 0.75,
-          "CIFR": 0.7
+        "RIOT": 0.9,
+        "BITF": 0.85,
+        "CORZ": 0.7,
+        "CLSK": 0.8,
+        "IREN": 0.75,
+        "CIFR": 0.7
       },
       "tickers": [
-          "MARA",
-          "RIOT",
-          "BITF",
-          "CORZ",
-          "CLSK",
-          "IREN",
-          "CIFR"
+        "MARA",
+        "RIOT",
+        "BITF",
+        "CORZ",
+        "CLSK",
+        "IREN",
+        "CIFR"
       ],
       "correlated_sectors": [
-          "ai_infra"
+        "ai_infra"
       ],
       "macro_sensitivity": "very_high",
       "risk_note": "BTC price is the primary driver. Secondary driver is power costs and regulatory news. Very high IV - buying options is expensive. Consider selling premium instead."
@@ -393,12 +395,19 @@
       "leader": "JPM",
       "leader_note": "JPM leads bank sentiment. BAC and WFC follow. Rate decisions and yield curve are primary drivers.",
       "beta_to_leader": {
-          "BAC": 0.85,
-          "WFC": 0.8,
-          "GS": 0.9
+        "BAC": 0.85,
+        "WFC": 0.8,
+        "GS": 0.9
       },
-      "tickers": ["JPM", "BAC", "WFC", "GS"],
-      "correlated_sectors": ["fintech"],
+      "tickers": [
+        "JPM",
+        "BAC",
+        "WFC",
+        "GS"
+      ],
+      "correlated_sectors": [
+        "fintech"
+      ],
       "macro_sensitivity": "very_high",
       "risk_note": "Rate sensitive — Fed decisions move the whole group. Trade around FOMC meetings and earnings."
     },
@@ -751,6 +760,7 @@
     "cipher digital inc.": "CIFR",
     "everspin technologies, inc.": "MRAM",
     "iren limited": "IREN",
-    "applied optoelectronics, inc.": "AAOI"
+    "applied optoelectronics, inc.": "AAOI",
+    "shopify inc.": "SHOP"
   }
 }
