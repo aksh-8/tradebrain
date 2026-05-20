@@ -141,7 +141,9 @@
         "NOK": 0.1,
         "SNDK": 0.17,
         "ORCL": 1.31,
-        "AAOI": 0.1
+        "AAOI": 0.1,
+        "DELL": 0.1,
+        "COHR": 0.1
       },
       "tickers": [
         "MSFT",
@@ -153,7 +155,9 @@
         "NOK",
         "SNDK",
         "ORCL",
-        "AAOI"
+        "AAOI",
+        "DELL",
+        "COHR"
       ],
       "correlated_sectors": [
         "semis_compute",
@@ -484,7 +488,9 @@
         "FCEL": 0.38,
         "USAR": 0.68,
         "HGRAF": 0.36,
-        "FSLR": 0.13
+        "FSLR": 0.13,
+        "TE": 0.3,
+        "ENVX": 0.4
       },
       "tickers": [
         "SMR",
@@ -496,7 +502,9 @@
         "FCEL",
         "USAR",
         "HGRAF",
-        "FSLR"
+        "FSLR",
+        "TE",
+        "ENVX"
       ],
       "correlated_sectors": [
         "ai_infra"
@@ -536,12 +544,16 @@
         "HOOD",
         "COIN",
         "SOFI",
-        "AFRM"
+        "AFRM",
+        "HIVE",
+        "HUT"
       ],
       "beta_to_leader": {
         "HOOD": 0.67,
         "SOFI": 0.46,
-        "AFRM": 1.2
+        "AFRM": 1.2,
+        "HIVE": 0.65,
+        "HUT": 0.5
       },
       "cross_sector_signals": [],
       "correlated_sectors": [
@@ -829,6 +841,13 @@
     "the trade desk, inc.": "TTD",
     "kraneshares csi china internet etf": "KWEB",
     "kraneshares csi china internet": "KWEB",
-    "ford motor company": "F"
+    "ford motor company": "F",
+    "t1 energy inc.": "TE",
+    "hive digital technologies ltd.": "HIVE",
+    "hive digital technologies ltd": "HIVE",
+    "hut 8 corp.": "HUT",
+    "dell technologies inc.": "DELL",
+    "coherent corp.": "COHR",
+    "enovix corporation": "ENVX"
   }
 }

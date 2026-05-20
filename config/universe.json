@@ -107,7 +107,13 @@
     "BKNG",
     "TTD",
     "KWEB",
-    "F"
+    "F",
+    "TE",
+    "HIVE",
+    "HUT",
+    "DELL",
+    "COHR",
+    "ENVX"
   ],
   "proxies": {
     "SPY": "IWM",
