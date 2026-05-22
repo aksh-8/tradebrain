@@ -215,20 +215,22 @@ def run(intake: Intake, deep: bool = False) -> tuple[ResearchResult, list[Pick],
 
     if user_direction != "unknown":
         if llm_verdict == "contradicted" and llm_confidence == "high":
+            # LLM strongly disagrees — override direction
             direction = llm_direction if llm_direction != "unknown" else user_direction
             if direction != user_direction:
                 direction_note = (
-                    f"[yellow]⚠ THESIS OVERRIDE[/yellow] — You said "
+                    f"[red]⚠ THESIS OVERRIDE[/red] — You said "
                     f"[bold]{user_direction}[/bold] but data says "
                     f"[bold]{direction}[/bold] with high confidence. "
                     f"Showing {direction} contracts. Review reasoning above."
                 )
             else:
                 direction_note = (
-                    f"[yellow]⚠ THESIS CONTRADICTED[/yellow] — Data contradicts your thesis "
-                    f"but direction is still [bold]{direction}[/bold]. "
+                    f"[yellow]⚠ THESIS CONTRADICTED[/yellow] — Data contradicts "
+                    f"your thesis but direction is still [bold]{direction}[/bold]. "
                     f"Review reasoning carefully before trading."
                 )
+
         elif llm_verdict == "contradicted" and llm_confidence == "medium":
             direction = user_direction
             direction_note = (
@@ -236,14 +238,42 @@ def run(intake: Intake, deep: bool = False) -> tuple[ResearchResult, list[Pick],
                 f"your {user_direction} thesis. Proceeding with {user_direction} "
                 f"contracts but review the reasoning carefully before trading."
             )
+
+        elif llm_verdict == "contradicted" and llm_confidence == "low":
+            # BUG FIX: was silently falling to else
+            direction = user_direction
+            direction_note = (
+                f"[dim]⚠ Data weakly contradicts your {user_direction} thesis "
+                f"(low confidence signal). Proceeding with your direction.[/dim]"
+            )
+
+        elif (
+            llm_direction != "unknown"
+            and llm_direction != user_direction
+            and llm_confidence in ("high", "medium")
+        ):
+            # BUG FIX: catches APLD case — direction mismatch even when verdict is None
+            # verdict can be None (no-thesis run) or neutral but direction still disagrees
+            direction = user_direction  # respect user's explicit direction
+            conf_color = "red" if llm_confidence == "high" else "yellow"
+            direction_note = (
+                f"[{conf_color}]⚠ DIRECTION CONFLICT[/{conf_color}] — "
+                f"You said [bold]{user_direction}[/bold] but data signals "
+                f"[bold]{llm_direction}[/bold] ({llm_confidence} confidence). "
+                f"Showing {user_direction} contracts as requested — "
+                f"are you fading the trend? Review carefully."
+            )
+
         elif llm_verdict == "neutral" and llm_confidence == "low":
             direction = user_direction
             direction_note = (
                 f"[dim]⚠ No strong signal detected. Proceeding with your "
                 f"{user_direction} direction — low confidence trade.[/dim]"
             )
+
         else:
             direction = user_direction
+
     else:
         direction = llm_direction
 
