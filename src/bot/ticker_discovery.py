@@ -127,6 +127,11 @@ _INDUSTRY_MAP: dict[str, str] = {
     "resorts & casinos":        "travel",
     "airlines":                 "travel",
     "rental & leasing services": "travel",
+
+    "real estate":              "real_estate",
+    "real estate services":     "real_estate",
+    "mortgage finance":         "real_estate",
+    "residential construction": "real_estate",
 }
 
 # default fallback — big_tech is safer than ai_software for true unknowns

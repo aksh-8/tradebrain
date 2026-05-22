@@ -16,7 +16,9 @@
         "INTC": 0.4,
         "CBRS": 0.5,
         "NVTS": 1.1,
-        "MRAM": 1.0
+        "ALAB": 0.75,
+        "CRDO": 0.7,
+        "LAES": 0.98
       },
       "tickers": [
         "NVDA",
@@ -31,7 +33,7 @@
         "CRDO",
         "CBRS",
         "NVTS",
-        "MRAM"
+        "LAES"
       ],
       "correlated_sectors": [
         "semis_equipment",
@@ -50,14 +52,16 @@
         "SNDK": 0.85,
         "WDC": 0.8,
         "STX": 0.7,
-        "DRAM": 0.89
+        "DRAM": 0.89,
+        "MRAM": 1.0
       },
       "tickers": [
         "MU",
         "SNDK",
         "WDC",
         "STX",
-        "DRAM"
+        "DRAM",
+        "MRAM"
       ],
       "correlated_sectors": [
         "semis_compute",
@@ -103,7 +107,13 @@
         "CRWV": 0.8,
         "WULF": 0.75,
         "DOCN": 0.55,
-        "ANET": 0.5
+        "ANET": 0.5,
+        "GLW": 0.45,
+        "APH": 0.5,
+        "AAOI": 0.7,
+        "COHR": 0.55,
+        "DELL": 0.6,
+        "NOK": 0.3
       },
       "tickers": [
         "NBIS",
@@ -114,11 +124,12 @@
         "WULF",
         "DOCN",
         "ANET",
-        "ACN",
         "GLW",
         "APH",
-        "SMR",
-        "NVTS"
+        "AAOI",
+        "COHR",
+        "DELL",
+        "NOK"
       ],
       "correlated_sectors": [
         "semis_compute",
@@ -134,30 +145,16 @@
       "leader_note": "MSFT leads because Azure/OpenAI capex signals the demand side for the entire AI ecosystem. GOOGL and META follow. AAPL is more defensive and less correlated to AI.",
       "beta_to_leader": {
         "GOOGL": 0.8,
-        "META": 0.8,
         "AMZN": 0.75,
         "AAPL": 0.5,
-        "TSLA": 0.4,
-        "NOK": 0.1,
-        "SNDK": 0.17,
-        "ORCL": 1.31,
-        "AAOI": 0.1,
-        "DELL": 0.1,
-        "COHR": 0.1
+        "ORCL": 1.31
       },
       "tickers": [
         "MSFT",
         "GOOGL",
-        "META",
         "AMZN",
         "AAPL",
-        "TSLA",
-        "NOK",
-        "SNDK",
-        "ORCL",
-        "AAOI",
-        "DELL",
-        "COHR"
+        "ORCL"
       ],
       "correlated_sectors": [
         "semis_compute",
@@ -203,7 +200,10 @@
         "ZETA": 0.55,
         "FIG": 1.28,
         "SHOP": 0.86,
-        "TTD": 0.75
+        "TTD": 0.75,
+        "ACN": 0.5,
+        "INOD": 0.6,
+        "NOW": 0.7
       },
       "tickers": [
         "PLTR",
@@ -213,7 +213,10 @@
         "ZETA",
         "FIG",
         "SHOP",
-        "TTD"
+        "TTD",
+        "ACN",
+        "INOD",
+        "NOW"
       ],
       "correlated_sectors": [
         "big_tech"
@@ -230,14 +233,22 @@
         "S": 0.85,
         "PANW": 0.75,
         "ZS": 0.8,
-        "FTNT": 0.65
+        "FTNT": 0.65,
+        "NET": 0.8,
+        "SNOW": 0.7,
+        "DDOG": 0.75,
+        "LAES": 0.6
       },
       "tickers": [
         "CRWD",
         "S",
         "PANW",
         "ZS",
-        "FTNT"
+        "FTNT",
+        "NET",
+        "SNOW",
+        "DDOG",
+        "LAES"
       ],
       "correlated_sectors": [
         "big_tech",
@@ -247,6 +258,31 @@
       "risk_note": "Cybersecurity is defensive — tends to hold up better in risk-off moves. Budget cycles and breach headlines are primary catalysts. S specifically has had fundamentals-vs-price disconnect — buy thesis needs a catalyst."
     },
     {
+      "name": "Real estate and proptech",
+      "slug": "real_estate",
+      "leader": "Z",
+      "leader_note": "Zillow leads proptech sentiment. OPEN is the highest-beta name — pure iBuyer model with direct housing market exposure. All move on Fed rate decisions, mortgage rate data, and housing inventory prints.",
+      "beta_to_leader": {
+          "OPEN": 1.4,
+          "RDFN": 0.85,
+          "ZG": 0.95,
+          "EXPI": 0.7
+      },
+      "tickers": [
+          "Z",
+          "ZG",
+          "OPEN",
+          "RDFN",
+          "EXPI"
+      ],
+      "correlated_sectors": [
+          "banks",
+          "fintech"
+      ],
+      "macro_sensitivity": "very_high",
+      "risk_note": "Fed rate decisions are the single biggest driver — rate cuts = sector rip, rate hikes = sector crush. Housing inventory data and mortgage application weekly prints are leading indicators. OPEN is the most volatile — high IV, wide spreads, size at 1 contract max."
+    },
+    {
       "name": "Industrial automation and robotics",
       "slug": "robotics",
       "leader": "PATH",
@@ -254,15 +290,13 @@
       "beta_to_leader": {
         "SYM": 0.7,
         "SERV": 0.65,
-        "AMBA": 0.6,
-        "RR": 0.5
+        "AMBA": 0.6
       },
       "tickers": [
         "PATH",
         "SYM",
         "SERV",
-        "AMBA",
-        "RR"
+        "AMBA"
       ],
       "correlated_sectors": [
         "semis_compute",
@@ -282,7 +316,8 @@
         "ONDS": 0.45,
         "RCAT": 0.5,
         "RDW": 0.34,
-        "FLY": 0.99
+        "FLY": 0.99,
+        "RR": 0.55
       },
       "tickers": [
         "RTX",
@@ -291,7 +326,8 @@
         "ONDS",
         "RCAT",
         "RDW",
-        "FLY"
+        "FLY",
+        "RR"
       ],
       "correlated_sectors": [
         "robotics",
@@ -353,19 +389,21 @@
       "beta_to_leader": {
         "RIOT": 0.9,
         "BITF": 0.85,
-        "CORZ": 0.7,
         "CLSK": 0.8,
-        "IREN": 0.75,
-        "CIFR": 0.7
+        "CIFR": 0.7,
+        "HIVE": 0.65,
+        "HUT": 0.55,
+        "MSTR": 1.2
       },
       "tickers": [
         "MARA",
         "RIOT",
         "BITF",
-        "CORZ",
         "CLSK",
-        "IREN",
-        "CIFR"
+        "CIFR",
+        "HIVE",
+        "HUT",
+        "MSTR"
       ],
       "correlated_sectors": [
         "ai_infra"
@@ -490,7 +528,10 @@
         "HGRAF": 0.36,
         "FSLR": 0.13,
         "TE": 0.3,
-        "ENVX": 0.4
+        "ENVX": 0.4,
+        "URA": 0.5,
+        "CCJ": 0.45,
+        "NLR": 0.4
       },
       "tickers": [
         "SMR",
@@ -504,36 +545,16 @@
         "HGRAF",
         "FSLR",
         "TE",
-        "ENVX"
+        "ENVX",
+        "URA",
+        "CCJ",
+        "NLR"
       ],
       "correlated_sectors": [
         "ai_infra"
       ],
       "macro_sensitivity": "medium",
       "risk_note": "Nuclear and energy storage plays benefit from the same AI power demand thesis as data centers. Less volatile than AI infra - better for defined-risk plays."
-    },
-    {
-      "name": "Data infrastructure and AI data",
-      "slug": "ai_data",
-      "leader": "PLTR",
-      "leader_note": "PLTR leads the AI data and analytics category. INOD is a niche pure-play in data annotation for AI training - different model but same demand driver.",
-      "beta_to_leader": {
-        "INOD": 0.6,
-        "BBAI": 0.65,
-        "ZETA": 0.55
-      },
-      "tickers": [
-        "PLTR",
-        "INOD",
-        "BBAI",
-        "ZETA"
-      ],
-      "correlated_sectors": [
-        "ai_software",
-        "big_tech"
-      ],
-      "macro_sensitivity": "medium",
-      "risk_note": "INOD is micro-cap with thin options liquidity. Options spreads will be wide. Treat any INOD options play as speculative - size at 1 contract maximum and expect relaxed filter picks. PLTR is the liquid proxy."
     },
     {
       "slug": "fintech",
@@ -544,16 +565,12 @@
         "HOOD",
         "COIN",
         "SOFI",
-        "AFRM",
-        "HIVE",
-        "HUT"
+        "AFRM"
       ],
       "beta_to_leader": {
         "HOOD": 0.67,
         "SOFI": 0.46,
-        "AFRM": 1.2,
-        "HIVE": 0.65,
-        "HUT": 0.5
+        "AFRM": 1.2
       },
       "cross_sector_signals": [],
       "correlated_sectors": [
@@ -569,12 +586,12 @@
       "leader_note": "TSLA leads EV sentiment globally. RIVN and NIO follow with higher beta. GM/F are traditional auto proxies with lower beta.",
       "beta_to_leader": {
         "RIVN": 0.38,
-        "NIO": 0.32,
-        "F": 0.49
+        "F": 0.49,
+        "GM": 0.35
       },
       "tickers": [
+        "TSLA",
         "RIVN",
-        "NIO",
         "GM",
         "F"
       ],
@@ -592,13 +609,14 @@
       "leader_note": "META leads social/consumer internet. SNAP and PINS are high-beta followers. Ad market conditions drive the whole group.",
       "beta_to_leader": {
         "SNAP": 0.92,
-        "BIDU": 0.32
+        "PINS": 0.75,
+        "RDDT": 0.65
       },
       "tickers": [
+        "META",
         "SNAP",
         "PINS",
-        "RDDT",
-        "BIDU"
+        "RDDT"
       ],
       "correlated_sectors": [
         "big_tech",
@@ -614,7 +632,9 @@
       "leader_note": "BABA leads China ADR sentiment. PDD and JD follow. Geopolitical headlines and US-China trade policy are the primary macro drivers.",
       "beta_to_leader": {
         "PDD": 0.6,
-        "BABA": 1.0
+        "JD": 0.7,
+        "NIO": 0.65,
+        "BIDU": 0.55
       },
       "tickers": [
         "BABA",
@@ -637,7 +657,8 @@
       "leader_note": "XOM leads traditional energy. OXY and CVX follow. Oil price and production data are the primary drivers.",
       "beta_to_leader": {
         "CVX": 0.73,
-        "XOM": 1.0
+        "XOM": 1.0,
+        "OXY": 0.85
       },
       "tickers": [
         "XOM",
@@ -657,13 +678,11 @@
       "leader_note": "RKLB leads the commercial space cluster. ASTS is the satellite connectivity play. Both move on launch success/failure news and SpaceX competition.",
       "beta_to_leader": {
         "ASTS": 0.65,
-        "SPCE": 0.55,
         "MNTS": 0.5
       },
       "tickers": [
         "RKLB",
         "ASTS",
-        "SPCE",
         "MNTS"
       ],
       "correlated_sectors": [
@@ -848,6 +867,16 @@
     "hut 8 corp.": "HUT",
     "dell technologies inc.": "DELL",
     "coherent corp.": "COHR",
-    "enovix corporation": "ENVX"
+    "enovix corporation": "ENVX",
+    "sealsq corp": "LAES",
+    "opendoor technologies inc.": "OPEN",
+    "opendoor technologies inc": "OPEN",
+    "zillow": "Z",
+    "zillow group": "Z",
+    "opendoor": "OPEN",
+    "opendoor technologies": "OPEN",
+    "redfin": "RDFN",
+    "exp realty": "EXPI",
+    "sealsq": "LAES"
   }
 }

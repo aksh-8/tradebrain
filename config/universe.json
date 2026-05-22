@@ -113,7 +113,16 @@
     "HUT",
     "DELL",
     "COHR",
-    "ENVX"
+    "ENVX",
+    "ACN",
+    "LAES",
+    "OPEN",
+    "Z", 
+    "ZG", 
+    "OPEN", 
+    "RDFN", 
+    "EXPI", 
+    "LAES"
   ],
   "proxies": {
     "SPY": "IWM",
