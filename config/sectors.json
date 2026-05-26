@@ -203,7 +203,8 @@
         "TTD": 0.75,
         "ACN": 0.5,
         "INOD": 0.6,
-        "NOW": 0.7
+        "NOW": 0.7,
+        "FROG": 0.53
       },
       "tickers": [
         "PLTR",
@@ -216,7 +217,8 @@
         "TTD",
         "ACN",
         "INOD",
-        "NOW"
+        "NOW",
+        "FROG"
       ],
       "correlated_sectors": [
         "big_tech"
@@ -263,21 +265,21 @@
       "leader": "Z",
       "leader_note": "Zillow leads proptech sentiment. OPEN is the highest-beta name — pure iBuyer model with direct housing market exposure. All move on Fed rate decisions, mortgage rate data, and housing inventory prints.",
       "beta_to_leader": {
-          "OPEN": 1.4,
-          "RDFN": 0.85,
-          "ZG": 0.95,
-          "EXPI": 0.7
+        "OPEN": 1.4,
+        "RDFN": 0.85,
+        "ZG": 0.95,
+        "EXPI": 0.7
       },
       "tickers": [
-          "Z",
-          "ZG",
-          "OPEN",
-          "RDFN",
-          "EXPI"
+        "Z",
+        "ZG",
+        "OPEN",
+        "RDFN",
+        "EXPI"
       ],
       "correlated_sectors": [
-          "banks",
-          "fintech"
+        "banks",
+        "fintech"
       ],
       "macro_sensitivity": "very_high",
       "risk_note": "Fed rate decisions are the single biggest driver — rate cuts = sector rip, rate hikes = sector crush. Housing inventory data and mortgage application weekly prints are leading indicators. OPEN is the most volatile — high IV, wide spreads, size at 1 contract max."
@@ -877,6 +879,7 @@
     "opendoor technologies": "OPEN",
     "redfin": "RDFN",
     "exp realty": "EXPI",
-    "sealsq": "LAES"
+    "sealsq": "LAES",
+    "jfrog ltd.": "FROG"
   }
 }

@@ -117,12 +117,13 @@
     "ACN",
     "LAES",
     "OPEN",
-    "Z", 
-    "ZG", 
-    "OPEN", 
-    "RDFN", 
-    "EXPI", 
-    "LAES"
+    "Z",
+    "ZG",
+    "OPEN",
+    "RDFN",
+    "EXPI",
+    "LAES",
+    "FROG"
   ],
   "proxies": {
     "SPY": "IWM",
