@@ -17,8 +17,8 @@
         "CBRS": 0.5,
         "NVTS": 1.1,
         "ALAB": 0.75,
-        "CRDO": 0.7,
-        "LAES": 0.98
+        "CRDO": 0.88,
+        "AOSL": 0.77
       },
       "tickers": [
         "NVDA",
@@ -33,7 +33,7 @@
         "CRDO",
         "CBRS",
         "NVTS",
-        "LAES"
+        "AOSL"
       ],
       "correlated_sectors": [
         "semis_equipment",
@@ -113,7 +113,8 @@
         "AAOI": 0.7,
         "COHR": 0.55,
         "DELL": 0.6,
-        "NOK": 0.3
+        "NOK": 0.3,
+        "P": 0.55
       },
       "tickers": [
         "NBIS",
@@ -129,7 +130,8 @@
         "AAOI",
         "COHR",
         "DELL",
-        "NOK"
+        "NOK",
+        "P"
       ],
       "correlated_sectors": [
         "semis_compute",
@@ -292,13 +294,15 @@
       "beta_to_leader": {
         "SYM": 0.7,
         "SERV": 0.65,
-        "AMBA": 0.6
+        "AMBA": 0.6,
+        "AEVA": 0.55
       },
       "tickers": [
         "PATH",
         "SYM",
         "SERV",
-        "AMBA"
+        "AMBA",
+        "AEVA"
       ],
       "correlated_sectors": [
         "semis_compute",
@@ -533,7 +537,8 @@
         "ENVX": 0.4,
         "URA": 0.5,
         "CCJ": 0.45,
-        "NLR": 0.4
+        "NLR": 0.4,
+        "BLDP": 0.47
       },
       "tickers": [
         "SMR",
@@ -550,7 +555,8 @@
         "ENVX",
         "URA",
         "CCJ",
-        "NLR"
+        "NLR",
+        "BLDP"
       ],
       "correlated_sectors": [
         "ai_infra"
@@ -680,12 +686,14 @@
       "leader_note": "RKLB leads the commercial space cluster. ASTS is the satellite connectivity play. Both move on launch success/failure news and SpaceX competition.",
       "beta_to_leader": {
         "ASTS": 0.65,
-        "MNTS": 0.5
+        "MNTS": 0.5,
+        "SPIR": 0.55
       },
       "tickers": [
         "RKLB",
         "ASTS",
-        "MNTS"
+        "MNTS",
+        "SPIR"
       ],
       "correlated_sectors": [
         "defense_aero",
@@ -880,6 +888,17 @@
     "redfin": "RDFN",
     "exp realty": "EXPI",
     "sealsq": "LAES",
-    "jfrog ltd.": "FROG"
+    "jfrog ltd.": "FROG",
+    "ballard power systems inc.": "BLDP",
+    "ballard power systems, inc.": "BLDP",
+    "credo technology group holding ltd": "CRDO",
+    "credo technology group holding": "CRDO",
+    "aeva technologies, inc.": "AEVA",
+    "alpha and omega semiconductor limited": "AOSL",
+    "alpha and omega semiconductor l": "AOSL",
+    "spire global, inc.": "SPIR",
+    "everpure, inc.": "P",
+    "pure storage": "P",
+    "everpure": "P"
   }
 }
