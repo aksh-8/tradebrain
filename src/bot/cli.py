@@ -2421,6 +2421,142 @@ def _cmd_watch(args: argparse.Namespace) -> None:
                     hv_rank=research.iv_rank,
                 )
 
+
+def _cmd_batch(args: argparse.Namespace) -> None:
+    """
+    tradebrain batch morning_picks.txt
+    tradebrain batch morning_picks.txt --budget 500 --llm gemini
+    Runs each thesis line and stores results. Review with tradebrain history.
+    """
+    import os
+    from pathlib import Path
+    from bot.intake import parse_intake
+    from bot.engine import run
+
+    path = Path(args.file)
+    if not path.exists():
+        console.print(f"[red]File not found: {path}[/red]")
+        return
+
+    lines = [l.strip() for l in path.read_text().splitlines()
+             if l.strip() and not l.strip().startswith('#')]
+
+    # parse each line — strip leading 'tradebrain' if present
+    theses = []
+    for line in lines:
+        # strip 'tradebrain' prefix
+        if line.startswith('tradebrain '):
+            line = line[len('tradebrain '):]
+        # extract --llm and --budget flags from line
+        import shlex
+        try:
+            parts = shlex.split(line)
+        except ValueError:
+            parts = line.split()
+
+        # pull out known flags, leave rest as thesis
+        budget = args.budget or 300.0
+        llm    = args.llm
+        thesis_parts = []
+        i = 0
+        while i < len(parts):
+            if parts[i] == '--llm' and i + 1 < len(parts):
+                llm = parts[i + 1]; i += 2
+            elif parts[i] == '--budget' and i + 1 < len(parts):
+                budget = float(parts[i + 1]); i += 2
+            elif parts[i].startswith('--'):
+                i += 2  # skip unknown flags and their values
+            else:
+                thesis_parts.append(parts[i]); i += 1
+
+        raw = ' '.join(thesis_parts).strip().strip('"').strip("'").strip('?')
+        if raw:
+            theses.append({'raw': raw, 'budget': budget, 'llm': llm})
+
+    console.print(
+        f"\n[bold cyan]tradebrain batch[/bold cyan] — "
+        f"{len(theses)} theses queued\n"
+        f"[dim]Results stored in log.db. "
+        f"Review with: tradebrain history[/dim]\n"
+    )
+
+    results = []
+    for i, t in enumerate(theses, 1):
+        if t['llm']:
+            os.environ['LLM_PROVIDER'] = t['llm']
+
+        intake = parse_intake(t['raw'], t['budget'])
+
+        console.print(
+            f"  [{i}/{len(theses)}] [bold]{intake.tickers[0] if intake.tickers else '?'}[/bold]"
+            f"  [dim]{t['raw'][:60]}{'...' if len(t['raw']) > 60 else ''}[/dim]"
+        )
+
+        with console.status("", spinner="dots"):
+            try:
+                research, picks, reason, *_ = run(intake)
+                results.append({
+                    'ticker':    research.ticker,
+                    'direction': research.recommended_direction,
+                    'confidence': research.confidence,
+                    'verdict':   research.thesis_verdict,
+                    'picks':     len(picks),
+                    'price':     research.price,
+                    'iv_rank':   research.iv_rank,
+                    'earnings':  research.earnings_days_away,
+                })
+            except Exception as e:
+                console.print(f"    [red]Error: {e}[/red]")
+                results.append({'ticker': '?', 'error': str(e)})
+
+    # summary table
+    console.print()
+    table = Table(
+        box=box.SIMPLE_HEAD,
+        header_style="bold cyan",
+        padding=(0, 1),
+    )
+    table.add_column("Ticker",  justify="center")
+    table.add_column("Signal",  justify="center")
+    table.add_column("Conf",    justify="center")
+    table.add_column("Verdict", justify="center")
+    table.add_column("Picks",   justify="right")
+    table.add_column("HV rank", justify="right")
+    table.add_column("Earnings",justify="right")
+
+    for r in results:
+        if 'error' in r:
+            table.add_row(r.get('ticker','?'), '[red]error[/red]', '—','—','—','—','—')
+            continue
+        dir_color  = {"bullish":"green","bearish":"red"}.get(r['direction'],"dim")
+        conf_color = {"high":"green","medium":"yellow","low":"red"}.get(r['confidence'],"dim")
+        verd_color = {"supported":"green","contradicted":"red","neutral":"yellow"}.get(
+            r.get('verdict') or "", "dim")
+        earn = f"{r['earnings']}d" if r.get('earnings') else "—"
+        earn_color = "red" if r.get('earnings') and r['earnings'] <= 14 else "dim"
+        hv = f"{r['iv_rank']:.0f}" if r.get('iv_rank') else "—"
+
+        table.add_row(
+            f"[bold]{r['ticker']}[/bold]",
+            f"[{dir_color}]{r['direction']}[/{dir_color}]",
+            f"[{conf_color}]{r['confidence']}[/{conf_color}]",
+            f"[{verd_color}]{r.get('verdict') or '—'}[/{verd_color}]",
+            str(r['picks']),
+            hv,
+            f"[{earn_color}]{earn}[/{earn_color}]",
+        )
+
+    console.print(Panel(
+        table,
+        title=f"[bold cyan]Batch complete — {len(results)} tickers[/bold cyan]",
+        border_style="cyan",
+        padding=(1, 1),
+    ))
+    console.print(
+        "  [dim]Review picks: [bold]tradebrain history --last 20[/bold]\n"
+        "  Re-run any: [bold]tradebrain rerun ID --budget 500[/bold][/dim]\n"
+    )
+
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
@@ -2540,6 +2676,17 @@ def main() -> None:
         if watch_args.llm:
             os.environ["LLM_PROVIDER"] = watch_args.llm
         _cmd_watch(watch_args)
+        return
+    
+    if len(sys.argv) > 1 and sys.argv[1] == "batch":
+        batch_ap = argparse.ArgumentParser(prog="tradebrain batch")
+        batch_ap.add_argument("file", help="Path to file of thesis lines")
+        batch_ap.add_argument("--budget", type=float, default=None,
+                              help="Default budget (overridden per-line if specified)")
+        batch_ap.add_argument("--llm", choices=["gemini","ollama"], default=None,
+                              help="Default LLM (overridden per-line if specified)")
+        batch_args = batch_ap.parse_args(sys.argv[2:])
+        _cmd_batch(batch_args)
         return
 
     ap = argparse.ArgumentParser(
