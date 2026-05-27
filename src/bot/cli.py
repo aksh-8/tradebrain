@@ -2112,6 +2112,63 @@ def _cmd_history(args: argparse.Namespace) -> None:
 
     _print_run_table(runs)
 
+def _cmd_rerun(args: argparse.Namespace) -> None:
+    """
+    tradebrain rerun 5
+    tradebrain rerun 5 --budget 500 --llm gemini
+    Re-runs a previous research session by ID with fresh live prices.
+    """
+    from bot.logger import get_run_detail
+    from bot.models import Intake
+    from bot.engine import run
+
+    run_data = get_run_detail(args.run_id)
+    if not run_data:
+        console.print(f"[red]Run #{args.run_id} not found. "
+                      f"Use [bold]tradebrain history[/bold] to see valid IDs.[/red]")
+        return
+
+    budget    = args.budget or run_data.get('budget') or 300.0
+    ticker    = run_data['ticker']
+    thesis    = run_data.get('thesis')
+    direction = run_data.get('direction') or 'unknown'
+    timeframe = run_data.get('timeframe') or 'unknown'
+    raw_text  = run_data.get('raw_text') or thesis or ticker
+
+    console.print(
+        f"\n[dim]Re-running #{args.run_id} — originally run {(run_data.get('ts') or '')[:10]}[/dim]\n"
+        f"  [bold]{ticker}[/bold]  direction={direction}  budget=${budget:.0f}\n"
+        + (f"  [dim]thesis: {thesis[:80]}{'...' if thesis and len(thesis) > 80 else ''}[/dim]\n"
+           if thesis else "")
+    )
+
+    intake = Intake(
+        raw_text        = raw_text,
+        tickers         = (ticker,),
+        context_tickers = (),
+        direction       = direction,
+        thesis          = thesis,
+        timeframe       = timeframe,
+        budget          = float(budget),
+    )
+
+    with console.status("[cyan]Re-running research with live prices...[/cyan]", spinner="dots"):
+        research, picks, reason, direction_note, earnings_dte_note, pre_picks = run(intake)
+
+    _print_research(research)
+
+    if direction_note:
+        console.print(f"\n  {direction_note}\n")
+    if earnings_dte_note:
+        console.print(f"\n  [yellow]DTE adjusted:[/yellow] [dim]{earnings_dte_note}[/dim]\n")
+
+    if picks:
+        _print_picks(picks, float(budget))
+        _print_kelly_sizing(picks, float(budget))
+        if pre_picks:
+            _print_pre_earnings_picks(pre_picks, float(budget), hv_rank=research.iv_rank)
+    else:
+        _print_budget_warning(ticker, float(budget), reason)
 
 def _print_run_table(runs: list[dict]) -> None:
     table = Table(
@@ -2458,6 +2515,19 @@ def main() -> None:
         if contract_args.llm:
             os.environ["LLM_PROVIDER"] = contract_args.llm
         _cmd_contract(contract_args)
+        return
+    
+    if len(sys.argv) > 1 and sys.argv[1] == "rerun":
+        rr_ap = argparse.ArgumentParser(prog="tradebrain rerun")
+        rr_ap.add_argument("run_id", type=int, help="Run ID from tradebrain history")
+        rr_ap.add_argument("--budget", type=float, default=None,
+                           help="Override budget from original run")
+        rr_ap.add_argument("--llm", choices=["gemini", "ollama"], default=None,
+                           help="Override LLM provider")
+        rr_args = rr_ap.parse_args(sys.argv[2:])
+        if rr_args.llm:
+            os.environ["LLM_PROVIDER"] = rr_args.llm
+        _cmd_rerun(rr_args)
         return
     
     # route watch command
