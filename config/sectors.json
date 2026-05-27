@@ -79,14 +79,16 @@
         "LRCX": 0.9,
         "KLAC": 0.85,
         "ASML": 0.7,
-        "ENTG": 0.75
+        "ENTG": 0.75,
+        "ACMR": 1.06
       },
       "tickers": [
         "AMAT",
         "LRCX",
         "KLAC",
         "ASML",
-        "ENTG"
+        "ENTG",
+        "ACMR"
       ],
       "correlated_sectors": [
         "semis_compute",
@@ -114,7 +116,11 @@
         "COHR": 0.55,
         "DELL": 0.6,
         "NOK": 0.3,
-        "P": 0.55
+        "P": 0.55,
+        "CLFD": 0.45,
+        "VIAV": 0.4,
+        "LUMN": 0.4,
+        "CRSR": 0.55
       },
       "tickers": [
         "NBIS",
@@ -131,7 +137,11 @@
         "COHR",
         "DELL",
         "NOK",
-        "P"
+        "P",
+        "CLFD",
+        "VIAV",
+        "LUMN",
+        "CRSR"
       ],
       "correlated_sectors": [
         "semis_compute",
@@ -323,7 +333,8 @@
         "RCAT": 0.5,
         "RDW": 0.34,
         "FLY": 0.99,
-        "RR": 0.55
+        "RR": 0.55,
+        "OPTX": 0.4
       },
       "tickers": [
         "RTX",
@@ -333,7 +344,8 @@
         "RCAT",
         "RDW",
         "FLY",
-        "RR"
+        "RR",
+        "OPTX"
       ],
       "correlated_sectors": [
         "robotics",
@@ -425,13 +437,15 @@
       "beta_to_leader": {
         "QBTS": 0.85,
         "RGTI": 0.8,
-        "QUBT": 0.75
+        "QUBT": 0.75,
+        "INFQ": 0.8
       },
       "tickers": [
         "IONQ",
         "RGTI",
         "QBTS",
-        "QUBT"
+        "QUBT",
+        "INFQ"
       ],
       "correlated_sectors": [
         "semis_compute"
@@ -449,7 +463,8 @@
         "IWM": 0.85,
         "DIA": 0.8,
         "SMH": 2.0,
-        "KWEB": 1.34
+        "KWEB": 1.34,
+        "DXYZ": 1.51
       },
       "tickers": [
         "SPY",
@@ -457,7 +472,8 @@
         "IWM",
         "DIA",
         "SMH",
-        "KWEB"
+        "KWEB",
+        "DXYZ"
       ],
       "correlated_sectors": [
         "big_tech",
@@ -538,7 +554,9 @@
         "URA": 0.5,
         "CCJ": 0.45,
         "NLR": 0.4,
-        "BLDP": 0.47
+        "BLDP": 0.47,
+        "NXT": 0.23,
+        "ENPH": 0.33
       },
       "tickers": [
         "SMR",
@@ -556,7 +574,9 @@
         "URA",
         "CCJ",
         "NLR",
-        "BLDP"
+        "BLDP",
+        "NXT",
+        "ENPH"
       ],
       "correlated_sectors": [
         "ai_infra"
@@ -899,6 +919,18 @@
     "spire global, inc.": "SPIR",
     "everpure, inc.": "P",
     "pure storage": "P",
-    "everpure": "P"
+    "everpure": "P",
+    "acm research, inc.": "ACMR",
+    "affirm holdings, inc.": "AFRM",
+    "clearfield, inc.": "CLFD",
+    "lumen technologies, inc.": "LUMN",
+    "viavi solutions inc.": "VIAV",
+    "destiny tech100 inc.": "DXYZ",
+    "infleqtion, inc.": "INFQ",
+    "infleqtion": "INFQ",
+    "nextpower inc.": "NXT",
+    "syntec optics holdings, inc.": "OPTX",
+    "corsair gaming, inc.": "CRSR",
+    "enphase energy, inc.": "ENPH"
   }
 }

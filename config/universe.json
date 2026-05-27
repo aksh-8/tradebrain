@@ -129,7 +129,18 @@
     "AEVA",
     "AOSL",
     "SPIR",
-    "P"
+    "P",
+    "ACMR",
+    "AFRM",
+    "CLFD",
+    "LUMN",
+    "VIAV",
+    "DXYZ",
+    "INFQ",
+    "NXT",
+    "OPTX",
+    "CRSR",
+    "ENPH"
   ],
   "proxies": {
     "SPY": "IWM",
