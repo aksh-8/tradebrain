@@ -159,14 +159,16 @@
         "GOOGL": 0.8,
         "AMZN": 0.75,
         "AAPL": 0.5,
-        "ORCL": 1.31
+        "ORCL": 1.31,
+        "UMAC": 0.94
       },
       "tickers": [
         "MSFT",
         "GOOGL",
         "AMZN",
         "AAPL",
-        "ORCL"
+        "ORCL",
+        "UMAC"
       ],
       "correlated_sectors": [
         "semis_compute",
@@ -931,6 +933,7 @@
     "nextpower inc.": "NXT",
     "syntec optics holdings, inc.": "OPTX",
     "corsair gaming, inc.": "CRSR",
-    "enphase energy, inc.": "ENPH"
+    "enphase energy, inc.": "ENPH",
+    "unusual machines, inc.": "UMAC"
   }
 }
