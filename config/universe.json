@@ -141,7 +141,12 @@
     "OPTX",
     "CRSR",
     "ENPH",
-    "UMAC"
+    "UMAC",
+    "APP",
+    "TEAM",
+    "BWA",
+    "UNP",
+    "NEXA"
   ],
   "proxies": {
     "SPY": "IWM",
