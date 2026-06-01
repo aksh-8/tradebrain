@@ -50,8 +50,10 @@ def compute_technicals(history: list[dict]) -> dict:
             val = price * k + val * (1 - k)
         return round(val, 2)
 
+    result["ema_8"]  = ema(8)
     result["ema_9"]  = ema(9)
     result["ema_20"] = ema(20)
+    result["ema_21"] = ema(21)
     result["ema_50"] = ema(50)
 
     # -------------------------------------------------------------------------
@@ -213,6 +215,74 @@ def compute_technicals(history: list[dict]) -> dict:
                 result["volume_note"] = f"{vol_ratio}x average (normal)"
 
     # -------------------------------------------------------------------------
+    # Volume contraction (3-day vs 20-day avg)
+    # -------------------------------------------------------------------------
+    if len(volumes) >= 20:
+        vol_3day  = sum(volumes[-3:]) / 3
+        vol_20day = sum(volumes[-20:]) / 20
+        vol_contraction = round(vol_3day / vol_20day, 2) if vol_20day > 0 else None
+        result["vol_contraction_ratio"] = vol_contraction
+        if vol_contraction is not None:
+            if vol_contraction <= 0.6:
+                result["vol_contraction_note"] = f"contracting ({vol_contraction}x avg — sellers drying up)"
+            elif vol_contraction >= 1.5:
+                result["vol_contraction_note"] = f"expanding ({vol_contraction}x avg)"
+            else:
+                result["vol_contraction_note"] = f"normal ({vol_contraction}x avg)"
+    
+    # -------------------------------------------------------------------------
+    # EMA cluster proximity + setup signal
+    # -------------------------------------------------------------------------
+    ema8_val  = result.get("ema_8")
+    ema21_val = result.get("ema_21")
+    if ema8_val and ema21_val and current_price > 0:
+        pct_from_ema8  = round((current_price - ema8_val)  / ema8_val  * 100, 1)
+        pct_from_ema21 = round((current_price - ema21_val) / ema21_val * 100, 1)
+        result["pct_from_ema8"]  = pct_from_ema8
+        result["pct_from_ema21"] = pct_from_ema21
+
+        at_ema_cluster    = abs(pct_from_ema8) <= 3 or abs(pct_from_ema21) <= 3
+        extended_above    = pct_from_ema8 > 15
+        below_ema_cluster = pct_from_ema8 < -5 and pct_from_ema21 < -5
+
+        adx_val      = result.get("adx_14", 0) or 0
+        rsi_val      = result.get("rsi_14", 50) or 50
+        macd_note    = result.get("macd_note", "") or ""
+        vol_contract = result.get("vol_contraction_ratio", 1.0) or 1.0
+        pct_high     = result.get("pct_from_52w_high", -100) or -100
+        trend_intact = adx_val >= 20
+        vol_dry      = vol_contract <= 0.65
+        macd_bull    = "bullish" in macd_note
+
+        if at_ema_cluster and vol_dry and trend_intact and macd_bull:
+            result["setup_signal"] = (
+                "PULLBACK TO EMA — low-risk entry zone "
+                "(volume contracting, trend intact, MACD bullish)"
+            )
+        elif at_ema_cluster and trend_intact:
+            result["setup_signal"] = (
+                "AT EMA SUPPORT — potential entry zone, confirm volume before entry"
+            )
+        elif extended_above and rsi_val >= 70:
+            result["setup_signal"] = (
+                f"EXTENDED + OVERBOUGHT — {pct_from_ema8:+.0f}% above 8EMA, "
+                f"RSI={rsi_val} — wait for pullback to EMA cluster"
+            )
+        elif extended_above:
+            result["setup_signal"] = (
+                f"EXTENDED — {pct_from_ema8:+.0f}% above 8EMA — "
+                f"wait for pullback before entry"
+            )
+        elif below_ema_cluster and trend_intact:
+            result["setup_signal"] = (
+                "BELOW EMA CLUSTER — momentum degrading, avoid new longs"
+            )
+        elif pct_high >= -5 and vol_dry and trend_intact:
+            result["setup_signal"] = (
+                "COILING NEAR HIGH — tight base building, breakout watch"
+            )
+
+    # -------------------------------------------------------------------------
     # Price structure
     # -------------------------------------------------------------------------
     week_52_high = max(highs)
@@ -286,6 +356,72 @@ def compute_technicals(history: list[dict]) -> dict:
     return result
 
 
+def compute_ema_exit_signal(history: list[dict], current_price: float) -> dict:
+    """
+    Computes EMA-based exit signals for an open options position.
+    Uses underlying stock price vs 8/21/50 EMA.
+
+    Exit strategy (from momentum trading playbook):
+    - Stock closes below 8 EMA  → trim 25%
+    - Stock closes below 21 EMA → trim another 25%
+    - Stock closes below 50 EMA → sell full position
+    """
+    if len(history) < 52 or current_price <= 0:
+        return {}
+
+    closes = [h["close"] for h in history]
+    n      = len(closes)
+
+    def _ema(period: int) -> Optional[float]:
+        if n < period:
+            return None
+        k   = 2.0 / (period + 1)
+        val = sum(closes[:period]) / period
+        for price in closes[period:]:
+            val = price * k + val * (1 - k)
+        return round(val, 2)
+
+    ema8  = _ema(8)
+    ema21 = _ema(21)
+    ema50 = _ema(50)
+
+    if not all([ema8, ema21, ema50]):
+        return {}
+
+    above_ema8  = current_price >= ema8
+    above_ema21 = current_price >= ema21
+    above_ema50 = current_price >= ema50
+
+    if not above_ema50:
+        action      = "SELL"
+        action_note = "below 50 EMA — sell full position"
+        color       = "red"
+    elif not above_ema21:
+        action      = "TRIM"
+        action_note = "below 21 EMA — trim 25%"
+        color       = "yellow"
+    elif not above_ema8:
+        action      = "TRIM"
+        action_note = "below 8 EMA — trim 25%"
+        color       = "yellow"
+    else:
+        action      = "HOLD"
+        action_note = "above all EMAs"
+        color       = "green"
+
+    return {
+        "ema8":        ema8,
+        "ema21":       ema21,
+        "ema50":       ema50,
+        "above_ema8":  above_ema8,
+        "above_ema21": above_ema21,
+        "above_ema50": above_ema50,
+        "action":      action,
+        "action_note": action_note,
+        "color":       color,
+    }
+
+
 def format_technicals_for_llm(t: dict) -> str:
     """
     Formats computed technicals into a clean string for LLM consumption.
@@ -335,6 +471,20 @@ def format_technicals_for_llm(t: dict) -> str:
     # Volume
     if t.get("volume_note"):
         lines.append(f"Volume: {t['volume_note']}")
+
+    # EMA proximity
+    p8  = t.get("pct_from_ema8")
+    p21 = t.get("pct_from_ema21")
+    if p8 is not None and p21 is not None:
+        lines.append(f"vs EMA: {p8:+.1f}% from 8EMA  {p21:+.1f}% from 21EMA")
+
+    # Volume contraction
+    if t.get("vol_contraction_note"):
+        lines.append(f"Vol 3d: {t['vol_contraction_note']}")
+
+    # Setup signal — highest value line for LLM
+    if t.get("setup_signal"):
+        lines.append(f"Setup:  *** {t['setup_signal']} ***")
 
     # ADX
     if t.get("adx_note"):

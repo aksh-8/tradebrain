@@ -146,7 +146,12 @@
     "TEAM",
     "BWA",
     "UNP",
-    "NEXA"
+    "NEXA",
+    "IMSR",
+    "NNE",
+    "IBM",
+    "RDDT",
+    "HPE"
   ],
   "proxies": {
     "SPY": "IWM",

@@ -120,7 +120,8 @@
         "CLFD": 0.45,
         "VIAV": 0.4,
         "LUMN": 0.4,
-        "CRSR": 0.55
+        "CRSR": 0.55,
+        "HPE": 0.5
       },
       "tickers": [
         "NBIS",
@@ -141,7 +142,8 @@
         "CLFD",
         "VIAV",
         "LUMN",
-        "CRSR"
+        "CRSR",
+        "HPE"
       ],
       "correlated_sectors": [
         "semis_compute",
@@ -159,16 +161,14 @@
         "GOOGL": 0.8,
         "AMZN": 0.75,
         "AAPL": 0.5,
-        "ORCL": 1.31,
-        "UMAC": 0.94
+        "ORCL": 1.31
       },
       "tickers": [
         "MSFT",
         "GOOGL",
         "AMZN",
         "AAPL",
-        "ORCL",
-        "UMAC"
+        "ORCL"
       ],
       "correlated_sectors": [
         "semis_compute",
@@ -220,7 +220,8 @@
         "NOW": 0.7,
         "FROG": 0.53,
         "APP": 0.79,
-        "TEAM": 0.74
+        "TEAM": 0.74,
+        "IBM": 0.65
       },
       "tickers": [
         "PLTR",
@@ -236,7 +237,8 @@
         "NOW",
         "FROG",
         "APP",
-        "TEAM"
+        "TEAM",
+        "IBM"
       ],
       "correlated_sectors": [
         "big_tech"
@@ -342,7 +344,8 @@
         "RDW": 0.34,
         "FLY": 0.99,
         "RR": 0.55,
-        "OPTX": 0.4
+        "OPTX": 0.4,
+        "UMAC": 0.65
       },
       "tickers": [
         "RTX",
@@ -353,7 +356,8 @@
         "RDW",
         "FLY",
         "RR",
-        "OPTX"
+        "OPTX",
+        "UMAC"
       ],
       "correlated_sectors": [
         "robotics",
@@ -565,7 +569,9 @@
         "BLDP": 0.47,
         "NXT": 0.23,
         "ENPH": 0.33,
-        "NEXA": 0.41
+        "NEXA": 0.41,
+        "IMSR": 0.81,
+        "NNE": 0.85
       },
       "tickers": [
         "SMR",
@@ -586,7 +592,9 @@
         "BLDP",
         "NXT",
         "ENPH",
-        "NEXA"
+        "NEXA",
+        "IMSR",
+        "NNE"
       ],
       "correlated_sectors": [
         "ai_infra"
@@ -650,7 +658,7 @@
       "beta_to_leader": {
         "SNAP": 0.92,
         "PINS": 0.75,
-        "RDDT": 0.65
+        "RDDT": 0.85
       },
       "tickers": [
         "META",
@@ -949,6 +957,13 @@
     "atlassian corporation": "TEAM",
     "borgwarner inc.": "BWA",
     "union pacific corporation": "UNP",
-    "nexa resources s.a.": "NEXA"
+    "nexa resources s.a.": "NEXA",
+    "terrestrial energy inc.": "IMSR",
+    "nano nuclear energy inc.": "NNE",
+    "international business machines corporation": "IBM",
+    "international business machines": "IBM",
+    "reddit, inc.": "RDDT",
+    "hewlett packard enterprise company": "HPE",
+    "hewlett packard enterprise comp": "HPE"
   }
 }

@@ -1421,6 +1421,84 @@ def _cmd_portfolio_live(args: argparse.Namespace) -> None:
     except KeyboardInterrupt:
         console.print("\n\n[dim]Live view stopped.[/dim]\n")
 
+def _print_exit_signals(open_trades: list) -> None:
+    """
+    Fetches underlying stock history for each open trade and
+    shows EMA-based exit signals for position management.
+    """
+    from bot.chain_yf import get_price_history, get_spot, ChainError
+    from bot.technicals import compute_ema_exit_signal
+
+    if not open_trades:
+        return
+
+    table = Table(
+        box=box.SIMPLE_HEAD,
+        show_header=True,
+        header_style="bold yellow",
+        padding=(0, 1),
+    )
+    table.add_column("ID",     style="dim", width=4)
+    table.add_column("Ticker", justify="center")
+    table.add_column("Stock",  justify="right")
+    table.add_column("8 EMA",  justify="right")
+    table.add_column("21 EMA", justify="right")
+    table.add_column("50 EMA", justify="right")
+    table.add_column("Action", justify="left")
+
+    with console.status(
+        "[yellow]Computing EMA exit signals...[/yellow]", spinner="dots"
+    ):
+        for t in open_trades:
+            ticker = t["ticker"]
+            try:
+                hist = get_price_history(ticker, period="3mo")
+                try:
+                    stock_price = get_spot(ticker)
+                except ChainError:
+                    stock_price = hist[-1]["close"] if hist else 0.0
+
+                sig = compute_ema_exit_signal(hist, stock_price)
+
+                if not sig:
+                    table.add_row(
+                        str(t["id"]), ticker,
+                        f"${stock_price:.2f}" if stock_price else "—",
+                        "—", "—", "—",
+                        "[dim]insufficient data[/dim]"
+                    )
+                    continue
+
+                color  = sig["color"]
+                icon   = {"green": "✅", "yellow": "⚠", "red": "🔴"}.get(color, "")
+
+                table.add_row(
+                    str(t["id"]),
+                    ticker,
+                    f"${stock_price:.2f}",
+                    f"${sig['ema8']:.2f}",
+                    f"${sig['ema21']:.2f}",
+                    f"${sig['ema50']:.2f}",
+                    f"[{color}]{icon} {sig['action_note']}[/{color}]",
+                )
+            except Exception:
+                table.add_row(
+                    str(t["id"]), ticker, "—", "—", "—", "—",
+                    "[dim]error[/dim]"
+                )
+
+    console.print(Panel(
+        table,
+        title="[bold yellow]EMA Exit Signals — Underlying Stock[/bold yellow]",
+        border_style="yellow",
+        padding=(1, 1),
+    ))
+    console.print(
+        "  [dim]Trim 25% on close below 8 EMA  |  "
+        "Trim 25% on close below 21 EMA  |  "
+        "Sell full position below 50 EMA[/dim]\n"
+    )
+
 def _cmd_portfolio(args: argparse.Namespace) -> None:
     """
     tradebrain portfolio           — open positions with live P&L
@@ -1676,6 +1754,9 @@ def _cmd_portfolio(args: argparse.Namespace) -> None:
                 "  [dim]* Market closed — using last traded price. "
                 "P&L estimates may be inaccurate.[/dim]"
             )
+        # EMA exit signals
+        if getattr(args, 'exit_signals', False) and open_trades:
+            _print_exit_signals(open_trades)
 
     # -----------------------------------------------------------------------
     # Closed positions table
@@ -2599,6 +2680,8 @@ def main() -> None:
         port_ap.add_argument("--detail", type=int, default=None)
         port_ap.add_argument("--live",   action="store_true",
                              help="Live view — refreshes every 2 minutes")
+        port_ap.add_argument("--exit-signals", action="store_true",
+                             help="Show EMA exit signals for open positions")
         port_args = port_ap.parse_args(sys.argv[2:])
         if port_args.live:
             _cmd_portfolio_live(port_args)
