@@ -1421,6 +1421,154 @@ def _cmd_portfolio_live(args: argparse.Namespace) -> None:
     except KeyboardInterrupt:
         console.print("\n\n[dim]Live view stopped.[/dim]\n")
 
+def _print_contract_signals(open_trades: list, live_prices: dict) -> None:
+    """
+    Shows mechanical profit-taking and loss management signals for open contracts.
+
+    Rules:
+    Profit-taking:
+      +100% gain + DTE < 21  → TRIM 50% — big gain, time running out
+      +200% gain any DTE     → TRIM 50% — let half ride, protect gains
+      +300%+ gain any DTE    → CLOSE — don't give it back
+
+    DTE decay:
+      DTE < 10 + any profit  → CLOSE — theta destroying value daily
+      DTE < 21 + any profit  → TRIM 50% — time decay accelerating
+      DTE < 5                → CLOSE regardless — emergency exit
+
+    Loss management:
+      -50% loss + DTE < 21   → CLOSE — no recovery likely
+      -75% loss any DTE      → CLOSE — accept the loss
+    """
+    from datetime import date, datetime
+
+    if not open_trades:
+        return
+
+    today = date.today()
+    rows = []
+
+    for t in open_trades:
+        now_price = live_prices.get(t["id"])
+        if now_price is None:
+            continue
+
+        exp_date = datetime.strptime(t["expiry"], "%Y-%m-%d").date()
+        dte      = max(0, (exp_date - today).days)
+
+        pnl_pct  = ((now_price - t["entry_cost"]) / t["entry_cost"]) * 100
+        gain     = pnl_pct >= 0
+
+        # determine action
+        if dte <= 5:
+            action = "CLOSE"
+            note   = f"only {dte}d left — theta destroying value"
+            color  = "red"
+            icon   = "🔴"
+
+        elif pnl_pct >= 300:
+            action = "CLOSE"
+            note   = f"+{pnl_pct:.0f}% — take it all, don't give it back"
+            color  = "red"
+            icon   = "🔴"
+
+        elif pnl_pct >= 200:
+            action = "TRIM 50%"
+            note   = f"+{pnl_pct:.0f}% — protect gains, let half ride"
+            color  = "yellow"
+            icon   = "⚠"
+
+        elif pnl_pct >= 100 and dte < 21:
+            action = "TRIM 50%"
+            note   = f"+{pnl_pct:.0f}% gain AND {dte}d left — take half off"
+            color  = "yellow"
+            icon   = "⚠"
+
+        elif gain and dte < 10:
+            action = "CLOSE"
+            note   = f"{dte}d left with profit — close before theta takes it"
+            color  = "red"
+            icon   = "🔴"
+
+        elif gain and dte < 21:
+            action = "TRIM 50%"
+            note   = f"{dte}d left — time decay accelerating, take some profit"
+            color  = "yellow"
+            icon   = "⚠"
+
+        elif pnl_pct <= -75:
+            action = "CLOSE"
+            note   = f"{pnl_pct:.0f}% — accept the loss, capital at risk"
+            color  = "red"
+            icon   = "🔴"
+
+        elif pnl_pct <= -50 and dte < 21:
+            action = "CLOSE"
+            note   = f"{pnl_pct:.0f}% loss AND {dte}d left — no recovery likely"
+            color  = "red"
+            icon   = "🔴"
+
+        else:
+            action = "HOLD"
+            note   = "within normal range"
+            color  = "green"
+            icon   = "✅"
+
+        rows.append({
+            "id":     t["id"],
+            "ticker": t["ticker"],
+            "strike": t["strike"],
+            "side":   t["side"],
+            "expiry": t["expiry"],
+            "dte":    dte,
+            "pnl_pct": pnl_pct,
+            "action": action,
+            "note":   note,
+            "color":  color,
+            "icon":   icon,
+        })
+
+    if not rows:
+        return
+
+    table = Table(
+        box=box.SIMPLE_HEAD,
+        show_header=True,
+        header_style="bold magenta",
+        padding=(0, 1),
+    )
+    table.add_column("ID",      style="dim", width=4)
+    table.add_column("Ticker",  justify="center")
+    table.add_column("Contract",justify="left")
+    table.add_column("DTE",     justify="right")
+    table.add_column("P&L %",   justify="right")
+    table.add_column("Action",  justify="left")
+
+    for r in rows:
+        dte_color = "red" if r["dte"] <= 5 else "yellow" if r["dte"] <= 14 else "dim"
+        pnl_color = "green" if r["pnl_pct"] >= 0 else "red"
+
+        table.add_row(
+            str(r["id"]),
+            r["ticker"],
+            f"${r['strike']:g} {r['side']}  {r['expiry']}",
+            f"[{dte_color}]{r['dte']}d[/{dte_color}]",
+            f"[{pnl_color}]{r['pnl_pct']:+.0f}%[/{pnl_color}]",
+            f"[{r['color']}]{r['icon']} {r['action']} — {r['note']}[/{r['color']}]",
+        )
+
+    console.print(Panel(
+        table,
+        title="[bold magenta]Contract Profit-Taking Signals[/bold magenta]",
+        border_style="magenta",
+        padding=(1, 1),
+    ))
+    console.print(
+        "  [dim]Rules: +300% → close all  |  +200% → trim 50%  |  "
+        "+100% + DTE<21 → trim 50%  |  -75% → close  |  "
+        "DTE<5 → close regardless[/dim]\n"
+    )
+
 def _print_exit_signals(open_trades: list) -> None:
     """
     Fetches underlying stock history for each open trade and
@@ -1757,6 +1905,9 @@ def _cmd_portfolio(args: argparse.Namespace) -> None:
         # EMA exit signals
         if getattr(args, 'exit_signals', False) and open_trades:
             _print_exit_signals(open_trades)
+        # Contract profit-taking signals
+        if getattr(args, 'exit_signals', False) and open_trades:
+            _print_contract_signals(open_trades, live_prices)
 
     # -----------------------------------------------------------------------
     # Closed positions table
