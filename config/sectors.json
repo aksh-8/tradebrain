@@ -748,62 +748,315 @@
       "trigger_ticker": "NVDA",
       "trigger_direction": "bullish",
       "implies": [
-        "AMD",
-        "AVGO",
         "AMAT",
-        "LRCX",
-        "NBIS",
+        "AMD",
         "APLD",
-        "MSFT"
+        "ARM",
+        "AVGO",
+        "LRCX",
+        "MRVL",
+        "MSFT",
+        "NBIS",
+        "TSM"
       ],
-      "note": "NVDA up = entire AI stack bid. Strongest same-day correlation to AMD, AVGO. Data center stocks follow within 1-2 sessions."
+      "note": "NVDA up = entire AI stack bid. Strongest same-day correlation to AMD, AVGO, ARM. Data center stocks follow within 1-2 sessions. NVDA earnings week = IV spike across entire sector."
     },
     {
       "trigger_ticker": "MSFT",
       "trigger_direction": "bullish",
       "implies": [
+        "AMZN",
+        "CRM",
+        "CRWV",
+        "DDOG",
         "GOOGL",
         "META",
-        "AMZN",
+        "NOW",
         "PLTR",
-        "CRM",
-        "CRWV"
+        "SNOW"
       ],
-      "note": "MSFT Azure guidance = demand signal for the whole cloud and AI software stack."
+      "note": "MSFT Azure guidance = demand signal for entire cloud and AI software stack. Software names follow within 1-2 sessions."
     },
     {
       "trigger_ticker": "SPY",
       "trigger_direction": "bullish",
       "implies": [
-        "QQQ",
-        "IWM",
-        "NVDA",
         "AMD",
-        "PLTR"
+        "CRWV",
+        "IWM",
+        "NBIS",
+        "NVDA",
+        "PLTR",
+        "QQQ"
       ],
-      "note": "Broad market risk-on lifts high-beta AI names disproportionately. QQQ typically leads SPY on tech-driven days."
+      "note": "Broad market risk-on lifts high-beta AI names disproportionately. QQQ typically leads SPY on tech-driven days. VIX below 15 = risk-on, high-beta names outperform."
     },
     {
       "trigger_ticker": "NBIS",
       "trigger_direction": "bullish",
       "implies": [
         "APLD",
-        "IREN",
         "CORZ",
         "CRWV",
+        "IREN",
         "WULF"
       ],
-      "note": "AI data center cluster moves together on energy cost and hyperscaler demand news."
+      "note": "AI data center cluster moves together on energy cost and hyperscaler demand news. NBIS leads — all others follow same session."
     },
     {
       "trigger_ticker": "MU",
       "trigger_direction": "bullish",
       "implies": [
+        "DRAM",
+        "MRAM",
         "SNDK",
-        "WDC",
-        "STX"
+        "STX",
+        "WDC"
       ],
-      "note": "Memory cycle move. Currently semi-decoupled from GPU compute - MU up is a memory-specific signal, not a broad semi signal."
+      "note": "MU leads memory cycle — HBM demand signal. Semi-decoupled from GPU compute — treat as separate rotation."
+    },
+    {
+      "trigger_ticker": "TSLA",
+      "trigger_direction": "bullish",
+      "implies": [
+        "RIVN",
+        "NIO",
+        "F",
+        "GM"
+      ],
+      "note": "TSLA leads EV sentiment globally — RIVN and NIO follow same/next session on delivery data and EV policy news."
+    },
+    {
+      "trigger_ticker": "COIN",
+      "trigger_direction": "bullish",
+      "implies": [
+        "HOOD",
+        "MSTR",
+        "MARA",
+        "RIOT"
+      ],
+      "note": "COIN leads crypto fintech sentiment — retail crypto trading volume and BTC proxy. All follow on BTC price moves."
+    },
+    {
+      "trigger_ticker": "MARA",
+      "trigger_direction": "bullish",
+      "implies": [
+        "RIOT",
+        "CLSK",
+        "CIFR",
+        "MSTR",
+        "HIVE",
+        "HUT",
+        "BITF"
+      ],
+      "note": "MARA leads crypto miners — all follow BTC price same session. Secondary driver is power costs."
+    },
+    {
+      "trigger_ticker": "IONQ",
+      "trigger_direction": "bullish",
+      "implies": [
+        "RGTI",
+        "QBTS",
+        "QUBT",
+        "INFQ"
+      ],
+      "note": "IONQ leads quantum computing cluster — all move on quantum news same session. NVDA quantum comments are the biggest catalyst."
+    },
+    {
+      "trigger_ticker": "RKLB",
+      "trigger_direction": "bullish",
+      "implies": [
+        "ASTS",
+        "RDW",
+        "SPIR"
+      ],
+      "note": "RKLB leads commercial space — satellite and space infra follow on launch success and contract news."
+    },
+    {
+      "trigger_ticker": "RTX",
+      "trigger_direction": "bullish",
+      "implies": [
+        "LMT",
+        "NOC",
+        "ONDS",
+        "RCAT",
+        "UMAC"
+      ],
+      "note": "RTX leads defense sentiment on geopolitical headlines — drone names follow with higher beta. Conflict escalation = whole group bid."
+    },
+    {
+      "trigger_ticker": "SMR",
+      "trigger_direction": "bullish",
+      "implies": [
+        "OKLO",
+        "NNE",
+        "CEG",
+        "VST",
+        "IMSR"
+      ],
+      "note": "SMR leads nuclear theme — small cap nuclear names follow same session. AI power demand and energy security are shared catalysts."
+    },
+    {
+      "trigger_ticker": "BABA",
+      "trigger_direction": "bullish",
+      "implies": [
+        "PDD",
+        "JD",
+        "NIO",
+        "BIDU",
+        "KWEB"
+      ],
+      "note": "BABA leads China ADR rotation — all move on US-China trade headlines same session. Tariff news moves whole cluster instantly."
+    },
+    {
+      "trigger_ticker": "JPM",
+      "trigger_direction": "bullish",
+      "implies": [
+        "BAC",
+        "WFC",
+        "GS"
+      ],
+      "note": "JPM earnings lead bank sector — results set the tone for the group within hours. Rate guidance is the key signal."
+    },
+    {
+      "trigger_ticker": "XOM",
+      "trigger_direction": "bullish",
+      "implies": [
+        "CVX",
+        "OXY"
+      ],
+      "note": "XOM leads traditional energy on oil price moves — WTI up = whole group bid same session."
+    },
+    {
+      "trigger_ticker": "FSLR",
+      "trigger_direction": "bullish",
+      "implies": [
+        "ENPH",
+        "TE",
+        "ENVX"
+      ],
+      "note": "FSLR leads solar/clean energy cluster — IRA policy news and energy independence theme move the group together."
+    },
+    {
+      "trigger_ticker": "PLTR",
+      "trigger_direction": "bullish",
+      "implies": [
+        "BBAI",
+        "SOUN",
+        "ZETA",
+        "INOD"
+      ],
+      "note": "PLTR leads AI software sentiment — smaller AI software names follow with 1-2 session lag. Government AI adoption is the shared catalyst."
+    },
+    {
+      "trigger_ticker": "CRWD",
+      "trigger_direction": "bullish",
+      "implies": [
+        "S",
+        "PANW",
+        "ZS",
+        "NET",
+        "DDOG"
+      ],
+      "note": "CRWD leads cybersecurity — breach headlines and IT budget cycle news move whole cluster. Cyber is defensive — holds better in risk-off."
+    },
+    {
+      "trigger_ticker": "AMD",
+      "trigger_direction": "bullish",
+      "implies": [
+        "QCOM",
+        "INTC",
+        "DELL",
+        "HPE"
+      ],
+      "note": "AMD rips \u2192 rotation into value semi names. QCOM and DELL follow 1-2 sessions later. MI300 GPU data center wins are the catalyst."
+    },
+    {
+      "trigger_ticker": "AMZN",
+      "trigger_direction": "bullish",
+      "implies": [
+        "SHOP",
+        "BKNG",
+        "UBER"
+      ],
+      "note": "AMZN consumer/AWS strength signals broader e-commerce and consumer platform names. AWS growth = cloud sector bid."
+    },
+    {
+      "trigger_ticker": "META",
+      "trigger_direction": "bullish",
+      "implies": [
+        "SNAP",
+        "PINS",
+        "RDDT"
+      ],
+      "note": "META ad revenue beat signals ad market health — social media cluster follows same session. Ad spend cycle drives whole group."
+    },
+    {
+      "trigger_ticker": "NOW",
+      "trigger_direction": "bullish",
+      "implies": [
+        "CRM",
+        "TEAM",
+        "IBM"
+      ],
+      "note": "NOW leads enterprise software rotation — CRM and TEAM follow. IT budget cycle and enterprise AI adoption are shared drivers."
+    },
+    {
+      "trigger_ticker": "SNOW",
+      "trigger_direction": "bullish",
+      "implies": [
+        "PLTR",
+        "IBM",
+        "DDOG"
+      ],
+      "note": "SNOW leads data/analytics cluster — PLTR and IBM follow. Data platform spend and AI training data demand are shared catalysts."
+    },
+    {
+      "trigger_ticker": "HIMS",
+      "trigger_direction": "bullish",
+      "implies": [
+        "OSCR"
+      ],
+      "note": "HIMS leads growth healthtech — OSCR follows on health platform sentiment. GLP-1 and telehealth policy are key catalysts."
+    },
+    {
+      "trigger_ticker": "SOFI",
+      "trigger_direction": "bullish",
+      "implies": [
+        "AFRM",
+        "HOOD"
+      ],
+      "note": "Rate-sensitive fintech cluster moves together — Fed pivot signals move all three. Rate cut = whole cluster rips."
+    },
+    {
+      "trigger_ticker": "SPOT",
+      "trigger_direction": "bullish",
+      "implies": [
+        "SHOP",
+        "LULU"
+      ],
+      "note": "SPOT consumer discretionary strength signals broader consumer rotation into SHOP and LULU. Premium consumer spend is the shared driver."
+    },
+    {
+      "trigger_ticker": "ARM",
+      "trigger_direction": "bullish",
+      "implies": [
+        "QCOM",
+        "AVGO",
+        "MRVL"
+      ],
+      "note": "ARM architecture wins drive royalty beneficiaries — QCOM, AVGO, MRVL all benefit from ARM adoption across mobile and AI chips."
+    },
+    {
+      "trigger_ticker": "TSM",
+      "trigger_direction": "bullish",
+      "implies": [
+        "NVDA",
+        "AMD",
+        "AVGO",
+        "AMAT"
+      ],
+      "note": "TSM monthly revenue is the leading indicator for entire semi complex — signals fab demand 1-2 quarters ahead. Watch mid-month revenue print."
     }
   ],
   "company_name_map": {
