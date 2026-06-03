@@ -1902,6 +1902,26 @@ def _cmd_portfolio(args: argparse.Namespace) -> None:
                 "  [dim]* Market closed — using last traded price. "
                 "P&L estimates may be inaccurate.[/dim]"
             )
+        
+        # ── Auto-expiry detection ──
+        from datetime import date, datetime
+        expired_today = [
+            t for t in open_trades
+            if (datetime.strptime(t["expiry"], "%Y-%m-%d").date() - date.today()).days <= 0
+        ]
+        if expired_today:
+            console.print()
+            console.print(Panel(
+                "\n".join(
+                    f"  [red]⚠ #{t['id']} {t['ticker']} ${t['strike']:g} {t['side'].upper()} "
+                    f"exp={t['expiry']} — EXPIRED[/red]\n"
+                    f"  [dim]Close worthless: [bold]tradebrain close-trade {t['id']} --exit-cost 0[/bold][/dim]"
+                    for t in expired_today
+                ),
+                title="[bold red]Expired Positions — Action Required[/bold red]",
+                border_style="red",
+                padding=(1, 2),
+            ))
         # EMA exit signals
         if getattr(args, 'exit_signals', False) and open_trades:
             _print_exit_signals(open_trades)
@@ -2653,6 +2673,56 @@ def _cmd_watch(args: argparse.Namespace) -> None:
                     hv_rank=research.iv_rank,
                 )
 
+def _cmd_watchlist(args: argparse.Namespace) -> None:
+    """
+    tradebrain watchlist show
+    tradebrain watchlist add TICKER
+    tradebrain watchlist remove TICKER
+    """
+    import json
+    from pathlib import Path
+
+    wl_path = Path(__file__).parent.parent.parent / "config" / "watchlist.json"
+
+    if not wl_path.exists():
+        wl = {"tickers": [], "default_budget": 300}
+    else:
+        with open(wl_path) as f:
+            wl = json.load(f)
+
+    tickers = wl.get("tickers", [])
+
+    if args.action == "show" or args.action is None:
+        if not tickers:
+            console.print("[dim]Watchlist is empty.[/dim]")
+        else:
+            console.print(f"\n[bold cyan]Watchlist[/bold cyan] — {len(tickers)} tickers\n")
+            console.print("  " + "  ".join(f"[bold]{t}[/bold]" for t in tickers) + "\n")
+        return
+
+    if args.action == "add":
+        ticker = args.ticker.upper().strip()
+        if ticker in tickers:
+            console.print(f"  [yellow]{ticker} already in watchlist.[/yellow]")
+        else:
+            tickers.append(ticker)
+            wl["tickers"] = tickers
+            with open(wl_path, "w") as f:
+                json.dump(wl, f, indent=2)
+            console.print(f"  [green]✓ {ticker} added to watchlist.[/green]")
+        return
+
+    if args.action == "remove":
+        ticker = args.ticker.upper().strip()
+        if ticker not in tickers:
+            console.print(f"  [yellow]{ticker} not found in watchlist.[/yellow]")
+        else:
+            tickers.remove(ticker)
+            wl["tickers"] = tickers
+            with open(wl_path, "w") as f:
+                json.dump(wl, f, indent=2)
+            console.print(f"  [green]✓ {ticker} removed from watchlist.[/green]")
+        return
 
 def _cmd_batch(args: argparse.Namespace) -> None:
     """
@@ -2912,6 +2982,17 @@ def main() -> None:
         _cmd_watch(watch_args)
         return
     
+    if len(sys.argv) > 1 and sys.argv[1] == "watchlist":
+        wl_ap = argparse.ArgumentParser(prog="tradebrain watchlist")
+        wl_ap.add_argument("action", nargs="?",
+                           choices=["show", "add", "remove"],
+                           default="show")
+        wl_ap.add_argument("ticker", nargs="?", default=None,
+                           help="Ticker to add or remove")
+        wl_args = wl_ap.parse_args(sys.argv[2:])
+        _cmd_watchlist(wl_args)
+        return
+
     if len(sys.argv) > 1 and sys.argv[1] == "batch":
         batch_ap = argparse.ArgumentParser(prog="tradebrain batch")
         batch_ap.add_argument("file", help="Path to file of thesis lines")

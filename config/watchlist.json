@@ -1,7 +1,15 @@
 {
   "tickers": [
-    "NVDA", "AMD", "MSFT", "PLTR", "SOUN",
-    "SMR", "IONQ", "QBTS", "MSTR", "ONDS"
+    "NVDA",
+    "AMD",
+    "MSFT",
+    "PLTR",
+    "SMR",
+    "IONQ",
+    "QBTS",
+    "MSTR",
+    "ONDS",
+    "OKLO"
   ],
   "default_budget": 500,
   "note": "Edit this list to match your current watchlist. Run: tradebrain watch"
