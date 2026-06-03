@@ -1394,6 +1394,52 @@ def _cmd_log_trade(args: argparse.Namespace) -> None:
         f"Close with: [bold]tradebrain close-trade {trade_id} --exit-cost PRICE[/bold][/dim]\n"
     )
 
+def _cmd_add_to_trade(args: argparse.Namespace) -> None:
+    """
+    tradebrain add-to-trade 60 --contracts 1 --cost 480
+    Averages into an existing open position.
+    """
+    from bot.logger import get_trade_by_id, add_to_trade
+
+    trade = get_trade_by_id(args.trade_id)
+    if not trade:
+        console.print(f"[red]Trade #{args.trade_id} not found.[/red]")
+        return
+    if trade["status"] != "open":
+        console.print(f"[red]Trade #{args.trade_id} is {trade['status']} — can only add to open trades.[/red]")
+        return
+
+    old_qty  = trade["quantity"]
+    old_cost = trade["entry_cost"]
+    new_qty  = old_qty + args.contracts
+    # convert option price to dollars (same convention as entry_cost in DB)
+    cost_dollars = args.cost if args.cost >= 10 else args.cost * 100
+    new_avg  = round(((old_qty * old_cost) + (args.contracts * cost_dollars)) / new_qty, 2)
+
+    # confirm before updating
+    console.print(
+        f"\n  [bold]Add to #{args.trade_id}[/bold] — "
+        f"{trade['ticker']} ${trade['strike']:g} {trade['side']} {trade['expiry']}\n"
+        f"\n"
+        f"  Before:  {old_qty} contracts @ ${old_cost:.2f} = ${old_qty * old_cost:.2f}\n"
+        f"  Adding:  {args.contracts} contracts @ ${cost_dollars:.2f} "
+        f"[dim](option price ${args.cost:.2f})[/dim] = ${args.contracts * cost_dollars:.2f}\n"
+        f"  After:   [green]{new_qty} contracts @ ${new_avg:.2f} avg = "
+        f"${new_qty * new_avg:.2f}[/green]\n"
+    )
+
+    confirm = console.input("  Confirm? [y/N] ").strip().lower()
+    if confirm != "y":
+        console.print("  [dim]Cancelled.[/dim]")
+        return
+
+    updated = add_to_trade(args.trade_id, args.contracts, cost_dollars)
+    console.print(
+        f"\n  [green]✓ Updated #{args.trade_id}[/green] — "
+        f"{updated['quantity']} contracts @ ${updated['entry_cost']:.2f} avg  "
+        f"total invested: ${updated['total_invested']:.2f}\n"
+    )
+
 def _cmd_portfolio_live(args: argparse.Namespace) -> None:
     """
     tradebrain portfolio --live
@@ -2910,6 +2956,18 @@ def main() -> None:
         type_group.add_argument("--real",  action="store_true", help="Real trade — you enter execution price")
         lt_args = lt_ap.parse_args(sys.argv[2:])
         _cmd_log_trade(lt_args)
+        return
+    
+    # add to trade command
+    if len(sys.argv) > 1 and sys.argv[1] == "add-to-trade":
+        at_ap = argparse.ArgumentParser(prog="tradebrain add-to-trade")
+        at_ap.add_argument("trade_id",  type=int,   help="Trade ID to add to")
+        at_ap.add_argument("--contracts", type=int,   required=True,
+                           help="Number of contracts to add")
+        at_ap.add_argument("--cost",    type=float, required=True,
+                           help="Cost per contract in dollars (e.g. 480)")
+        at_args = at_ap.parse_args(sys.argv[2:])
+        _cmd_add_to_trade(at_args)
         return
 
     # route portfolio command

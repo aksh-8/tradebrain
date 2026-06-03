@@ -294,6 +294,47 @@ def get_trade_by_id(trade_id: int) -> Optional[dict]:
     return dict(row) if row else None
 
 
+def add_to_trade(trade_id: int, contracts: int, cost_per_contract: float) -> dict:
+    """
+    Averages into an existing open position.
+    Recalculates weighted average entry cost, updates qty and total_invested.
+    Returns updated trade dict.
+    """
+    _init_paper_trades()
+    trade = get_trade_by_id(trade_id)
+    if not trade:
+        raise ValueError(f"Trade ID {trade_id} not found.")
+    if trade["status"] != "open":
+        raise ValueError(f"Trade ID {trade_id} is already {trade['status']} — cannot add to a closed trade.")
+    if contracts <= 0:
+        raise ValueError("Contracts must be a positive integer.")
+    if cost_per_contract <= 0:
+        raise ValueError("Cost must be a positive dollar amount.")
+
+    old_qty   = trade["quantity"]
+    old_cost  = trade["entry_cost"]
+    new_qty   = old_qty + contracts
+
+    # weighted average entry cost
+    new_avg_cost     = ((old_qty * old_cost) + (contracts * cost_per_contract)) / new_qty
+    new_avg_cost     = round(new_avg_cost, 2)
+    new_total        = round(new_avg_cost * new_qty, 2)
+
+    with _conn() as con:
+        con.execute(
+            """
+            UPDATE paper_trades
+            SET entry_cost     = ?,
+                quantity       = ?,
+                total_invested = ?
+            WHERE id = ?
+            """,
+            (new_avg_cost, new_qty, new_total, trade_id),
+        )
+
+    return get_trade_by_id(trade_id)
+
+
 def close_paper_trade(trade_id: int, exit_cost: float) -> dict:
     """
     Closes a trade at exit_cost (dollars per contract).
