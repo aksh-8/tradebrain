@@ -151,7 +151,8 @@
     "NNE",
     "IBM",
     "RDDT",
-    "HPE"
+    "HPE",
+    "CAT"
   ],
   "proxies": {
     "SPY": "IWM",

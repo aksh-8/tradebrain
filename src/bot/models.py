@@ -65,7 +65,9 @@ class ResearchResult:
     confidence: Literal["high", "medium", "low"]
     skip_reason: Optional[str]
     relative_strength_note:   Optional[str] = None
-
+    expected_move: Optional[str] = None   # "±8.2% by Jun 18"
+    iv_skew: Optional[str] = None   # "put skew 1.31 — market pricing downside"
+    term_structure: Optional[str] = None   # "inverted 1.42 — event risk priced in"
 
 @dataclass(frozen=True)
 class Pick:

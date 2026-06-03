@@ -99,6 +99,26 @@ def _print_research(r: ResearchResult) -> None:
                 f"[bold]Rel strength[/bold] [{strength_color}]{rs_line.strip()}[/{strength_color}]"
             )
 
+    # options intelligence
+    if r.expected_move or r.iv_skew or r.term_structure:
+        lines.append("")
+    if r.expected_move:
+        lines.append(f"[bold]Expected move[/bold] [cyan]{r.expected_move}[/cyan]")
+    if r.iv_skew:
+        skew_color = (
+            "red"    if "put skew" in r.iv_skew
+            else "green" if "call skew" in r.iv_skew
+            else "dim"
+        )
+        lines.append(f"[bold]IV skew      [/bold] [{skew_color}]{r.iv_skew}[/{skew_color}]")
+    if r.term_structure:
+        term_color = (
+            "red"    if "inverted" in r.term_structure
+            else "yellow" if "contango" in r.term_structure
+            else "dim"
+        )
+        lines.append(f"[bold]Term struct  [/bold] [{term_color}]{r.term_structure}[/{term_color}]")
+
     # news
     if r.news_summary:
         lines.append("")

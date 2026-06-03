@@ -441,6 +441,235 @@ def _get_hv_rank(history: list[dict]) -> Optional[float]:
 
 
 # ---------------------------------------------------------------------------
+# Expected move from ATM straddle
+# ---------------------------------------------------------------------------
+
+def _compute_expected_move(ticker: str, price: float) -> Optional[str]:
+    """
+    Computes expected move from ATM straddle price.
+    Expected move = (ATM call ask + ATM put ask) / spot * 100
+    Returns human-readable string e.g. "±8.2% ($5.34) by Jun 18"
+    """
+    try:
+        exps = get_expirations(ticker)
+        if not exps:
+            return None
+
+        # find nearest expiry 7-45 DTE
+        today = date.today()
+        target_exp = None
+        for exp in exps:
+            exp_date = datetime.strptime(exp, "%Y-%m-%d").date()
+            dte = (exp_date - today).days
+            if 7 <= dte <= 45:
+                target_exp = exp
+                break
+
+        if not target_exp:
+            return None
+
+        chain = get_chain(ticker, target_exp)
+        if not chain:
+            return None
+
+        # find ATM call and put — closest strike to current price
+        calls = [c for c in chain if c.call_put == "call" and c.ask and c.ask > 0]
+        puts  = [c for c in chain if c.call_put == "put"  and c.ask and c.ask > 0]
+
+        if not calls or not puts:
+            return None
+
+        atm_call = min(calls, key=lambda c: abs(c.strike - price))
+        atm_put  = min(puts,  key=lambda c: abs(c.strike - price))
+
+        # only use if strikes are close to ATM (within 5%)
+        if abs(atm_call.strike - price) / price > 0.05:
+            return None
+        if abs(atm_put.strike  - price) / price > 0.05:
+            return None
+
+        straddle_price = atm_call.ask + atm_put.ask
+        move_pct       = round(straddle_price / price * 100, 1)
+        move_dollar    = round(straddle_price, 2)
+
+        exp_date_str = datetime.strptime(target_exp, "%Y-%m-%d").strftime("%b %d")
+        dte = (datetime.strptime(target_exp, "%Y-%m-%d").date() - today).days
+
+        return (
+            f"+-{move_pct}% (${move_dollar:.2f} straddle) by {exp_date_str} "
+            f"[{dte}d] — market-implied move range"
+        )
+
+    except Exception:
+        return None
+
+
+# ---------------------------------------------------------------------------
+# IV skew detection
+# ---------------------------------------------------------------------------
+
+def _compute_iv_skew(ticker: str, price: float) -> Optional[str]:
+    """
+    Computes put/call IV skew at ~25 delta.
+    Skew ratio = avg OTM put IV / avg OTM call IV
+    > 1.2  = put skew (fear premium — market pricing downside)
+    < 0.85 = call skew (squeeze/bullish premium elevated)
+    ~1.0   = neutral
+    """
+    try:
+        exps = get_expirations(ticker)
+        if not exps:
+            return None
+
+        # target 21-45 DTE for skew measurement
+        today = date.today()
+        target_exp = None
+        for exp in exps:
+            exp_date = datetime.strptime(exp, "%Y-%m-%d").date()
+            dte = (exp_date - today).days
+            if 21 <= dte <= 45:
+                target_exp = exp
+                break
+
+        if not target_exp:
+            # fallback to any expiry
+            target_exp = exps[0]
+
+        chain = get_chain(ticker, target_exp)
+        if not chain:
+            return None
+
+        # OTM puts: strike 5-20% below price, IV available
+        otm_puts = [
+            c for c in chain
+            if c.call_put == "put"
+            and c.iv and c.iv > 0
+            and 0.05 <= (price - c.strike) / price <= 0.20
+        ]
+
+        # OTM calls: strike 5-20% above price, IV available
+        otm_calls = [
+            c for c in chain
+            if c.call_put == "call"
+            and c.iv and c.iv > 0
+            and 0.05 <= (c.strike - price) / price <= 0.20
+        ]
+
+        if not otm_puts or not otm_calls:
+            return None
+
+        avg_put_iv  = sum(c.iv for c in otm_puts)  / len(otm_puts)
+        avg_call_iv = sum(c.iv for c in otm_calls) / len(otm_calls)
+
+        if avg_call_iv <= 0:
+            return None
+
+        skew_ratio = round(avg_put_iv / avg_call_iv, 2)
+
+        if skew_ratio >= 1.3:
+            label = f"strong put skew {skew_ratio:.2f} — market pricing significant downside risk"
+        elif skew_ratio >= 1.15:
+            label = f"put skew {skew_ratio:.2f} — mild fear premium, market cautious"
+        elif skew_ratio <= 0.85:
+            label = f"call skew {skew_ratio:.2f} — calls elevated, bullish/squeeze premium"
+        else:
+            label = f"neutral skew {skew_ratio:.2f} — balanced put/call premium"
+
+        return label
+
+    except Exception:
+        return None
+
+
+# ---------------------------------------------------------------------------
+# Term structure (near vs far IV)
+# ---------------------------------------------------------------------------
+
+def _compute_term_structure(ticker: str, price: float) -> Optional[str]:
+    """
+    Compares near-term IV vs medium-term IV.
+    Term ratio = near_IV / far_IV
+    > 1.3  = inverted (event risk priced into near-term)
+    < 0.8  = steep contango (calm near-term, far premium elevated)
+    ~1.0   = flat normal
+    """
+    try:
+        exps = get_expirations(ticker)
+        if len(exps) < 2:
+            return None
+
+        today = date.today()
+
+        # near: 7-21 DTE
+        near_exp = None
+        for exp in exps:
+            dte = (datetime.strptime(exp, "%Y-%m-%d").date() - today).days
+            if 7 <= dte <= 21:
+                near_exp = exp
+                break
+
+        # far: 35-75 DTE
+        far_exp = None
+        for exp in exps:
+            dte = (datetime.strptime(exp, "%Y-%m-%d").date() - today).days
+            if 35 <= dte <= 75:
+                far_exp = exp
+                break
+
+        if not near_exp or not far_exp:
+            return None
+
+        near_chain = get_chain(ticker, near_exp)
+        far_chain  = get_chain(ticker, far_exp)
+
+        if not near_chain or not far_chain:
+            return None
+
+        # ATM contracts only for IV comparison
+        def _atm_iv(chain, spot):
+            atm = min(
+                [c for c in chain if c.iv and c.iv > 0],
+                key=lambda c: abs(c.strike - spot),
+                default=None,
+            )
+            return atm.iv if atm else None
+
+        near_iv = _atm_iv(near_chain, price)
+        far_iv  = _atm_iv(far_chain,  price)
+
+        if not near_iv or not far_iv or far_iv <= 0:
+            return None
+
+        ratio = round(near_iv / far_iv, 2)
+
+        near_dte = (datetime.strptime(near_exp, "%Y-%m-%d").date() - today).days
+        far_dte  = (datetime.strptime(far_exp,  "%Y-%m-%d").date() - today).days
+
+        if ratio >= 1.3:
+            label = (
+                f"inverted {ratio:.2f} ({near_dte}d IV={near_iv:.0%} vs "
+                f"{far_dte}d IV={far_iv:.0%}) — near-term event risk priced in, "
+                f"avoid buying short-dated premium"
+            )
+        elif ratio <= 0.8:
+            label = (
+                f"steep contango {ratio:.2f} ({near_dte}d IV={near_iv:.0%} vs "
+                f"{far_dte}d IV={far_iv:.0%}) — calm near-term, "
+                f"longer-dated options relatively expensive"
+            )
+        else:
+            label = (
+                f"normal {ratio:.2f} ({near_dte}d IV={near_iv:.0%} vs "
+                f"{far_dte}d IV={far_iv:.0%}) — no unusual event risk detected"
+            )
+
+        return label
+
+    except Exception:
+        return None
+
+
+# ---------------------------------------------------------------------------
 # Ollama
 # ---------------------------------------------------------------------------
 
@@ -498,6 +727,9 @@ def _check_thesis(
     article_context: Optional[str] = None,
     technicals_block: Optional[str] = None,
     relative_strength_note: Optional[str] = None,
+    expected_move:          Optional[str] = None,
+    iv_skew:                Optional[str] = None,
+    term_structure:         Optional[str] = None,
 ) -> tuple[Optional[str], Optional[str], Direction, str]:
 
     use_gemini = _gemini_available()
@@ -562,6 +794,9 @@ def _check_thesis(
 - Analyst view:   {analyst_note or 'unavailable'}
 - Options flow:   {unusual_activity or 'nothing unusual'}
 - Relative strength (5d): {relative_strength_note or 'not available'}
+- Expected move:  {expected_move or 'not available'}
+- IV skew:        {iv_skew or 'not available'}
+- Term structure: {term_structure or 'not available'}
 - News headlines: {news_summary or 'none'}
 - News detail:    {article_context or 'headlines only — no full articles available'}
 {context_note}
@@ -747,6 +982,11 @@ def research_ticker(
     technicals      = compute_technicals(history)
     technicals_block = format_technicals_for_llm(technicals)
 
+    # options intelligence
+    expected_move  = _compute_expected_move(ticker, price)
+    iv_skew        = _compute_iv_skew(ticker, price)
+    term_structure = _compute_term_structure(ticker, price)
+
     # LLM thesis check
     verdict, reasoning, direction, confidence = _check_thesis(
         ticker             = ticker,
@@ -769,6 +1009,9 @@ def research_ticker(
         article_context    = article_context,
         technicals_block   = technicals_block,
         relative_strength_note = rel_strength,
+        expected_move          = expected_move,
+        iv_skew                = iv_skew,
+        term_structure         = term_structure,
     )
 
     skip_reason: Optional[str] = None
@@ -800,4 +1043,7 @@ def research_ticker(
         confidence           = confidence,
         skip_reason          = skip_reason,
         relative_strength_note = rel_strength,
+        expected_move          = expected_move,
+        iv_skew                = iv_skew,
+        term_structure         = term_structure,
     )

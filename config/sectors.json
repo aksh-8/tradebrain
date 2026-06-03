@@ -314,7 +314,8 @@
         "SERV": 0.65,
         "AMBA": 0.6,
         "AEVA": 0.55,
-        "UNP": 0.1
+        "UNP": 0.1,
+        "CAT": 0.1
       },
       "tickers": [
         "PATH",
@@ -322,7 +323,8 @@
         "SERV",
         "AMBA",
         "AEVA",
-        "UNP"
+        "UNP",
+        "CAT"
       ],
       "correlated_sectors": [
         "semis_compute",
@@ -969,7 +971,7 @@
         "DELL",
         "HPE"
       ],
-      "note": "AMD rips \u2192 rotation into value semi names. QCOM and DELL follow 1-2 sessions later. MI300 GPU data center wins are the catalyst."
+      "note": "AMD rips → rotation into value semi names. QCOM and DELL follow 1-2 sessions later. MI300 GPU data center wins are the catalyst."
     },
     {
       "trigger_ticker": "AMZN",
@@ -1217,6 +1219,8 @@
     "international business machines": "IBM",
     "reddit, inc.": "RDDT",
     "hewlett packard enterprise company": "HPE",
-    "hewlett packard enterprise comp": "HPE"
+    "hewlett packard enterprise comp": "HPE",
+    "caterpillar inc.": "CAT",
+    "caterpillar, inc.": "CAT"
   }
 }
