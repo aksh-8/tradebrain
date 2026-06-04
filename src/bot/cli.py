@@ -1487,7 +1487,7 @@ def _cmd_portfolio_live(args: argparse.Namespace) -> None:
     except KeyboardInterrupt:
         console.print("\n\n[dim]Live view stopped.[/dim]\n")
 
-def _print_contract_signals(open_trades: list, live_prices: dict) -> None:
+def _print_contract_signals(open_trades: list, live_prices: dict, ema_signals: dict) -> None:
     """
     Shows mechanical profit-taking and loss management signals for open contracts.
 
@@ -1525,7 +1525,7 @@ def _print_contract_signals(open_trades: list, live_prices: dict) -> None:
         pnl_pct  = ((now_price - t["entry_cost"]) / t["entry_cost"]) * 100
         gain     = pnl_pct >= 0
 
-        # determine action
+        # ── Contract rules ──
         if dte <= 5:
             action = "CLOSE"
             note   = f"only {dte}d left — theta destroying value"
@@ -1580,18 +1580,49 @@ def _print_contract_signals(open_trades: list, live_prices: dict) -> None:
             color  = "green"
             icon   = "✅"
 
+        # ── EMA override — senior signal ──
+        ema        = ema_signals.get(t["id"], {})
+        ema_action = ema.get("action", "HOLD")
+
+        if ema_action == "SELL":
+            if pnl_pct < 0:
+                combined       = "CLOSE"
+                combined_note  = f"EMA SELL + {pnl_pct:.0f}% loss — trend broken, exit now"
+                combined_color = "red"
+                icon           = "🔴"
+            else:
+                combined       = "CLOSE"
+                combined_note  = f"EMA SELL + {pnl_pct:+.0f}% — lock in profit, trend done"
+                combined_color = "red"
+                icon           = "🔴"
+        elif ema_action == "TRIM" and action in ("CLOSE", "TRIM 50%"):
+            combined       = action
+            combined_note  = f"EMA + contract both say reduce — {note}"
+            combined_color = "red"
+            icon           = "🔴"
+        elif ema_action == "TRIM" and pnl_pct < -30:
+            combined       = "MONITOR"
+            combined_note  = f"EMA weakening + {pnl_pct:.0f}% loss — watch closely"
+            combined_color = "yellow"
+            icon           = "⚠"
+        else:
+            combined       = action
+            combined_note  = note
+            combined_color = color
+            icon           = {"red": "🔴", "yellow": "⚠", "green": "✅"}.get(color, "✅")
+
         rows.append({
-            "id":     t["id"],
-            "ticker": t["ticker"],
-            "strike": t["strike"],
-            "side":   t["side"],
-            "expiry": t["expiry"],
-            "dte":    dte,
-            "pnl_pct": pnl_pct,
-            "action": action,
-            "note":   note,
-            "color":  color,
-            "icon":   icon,
+            "id":            t["id"],
+            "ticker":        t["ticker"],
+            "strike":        t["strike"],
+            "side":          t["side"],
+            "expiry":        t["expiry"],
+            "dte":           dte,
+            "pnl_pct":       pnl_pct,
+            "action":        combined,
+            "note":          combined_note,
+            "color":         combined_color,
+            "icon":          icon,
         })
 
     if not rows:
@@ -1603,12 +1634,12 @@ def _print_contract_signals(open_trades: list, live_prices: dict) -> None:
         header_style="bold magenta",
         padding=(0, 1),
     )
-    table.add_column("ID",      style="dim", width=4)
-    table.add_column("Ticker",  justify="center")
-    table.add_column("Contract",justify="left")
-    table.add_column("DTE",     justify="right")
-    table.add_column("P&L %",   justify="right")
-    table.add_column("Action",  justify="left")
+    table.add_column("ID",       style="dim", width=4)
+    table.add_column("Ticker",   justify="center")
+    table.add_column("Contract", justify="left")
+    table.add_column("DTE",      justify="right")
+    table.add_column("P&L %",    justify="right")
+    table.add_column("Action",   justify="left")
 
     for r in rows:
         dte_color = "red" if r["dte"] <= 5 else "yellow" if r["dte"] <= 14 else "dim"
@@ -1625,13 +1656,14 @@ def _print_contract_signals(open_trades: list, live_prices: dict) -> None:
 
     console.print(Panel(
         table,
-        title="[bold magenta]Contract Profit-Taking Signals[/bold magenta]",
+        title="[bold magenta]Contract Signals — EMA + P&L Combined[/bold magenta]",
         border_style="magenta",
         padding=(1, 1),
     ))
     console.print(
-        "  [dim]Rules: +300% → close all  |  +200% → trim 50%  |  "
-        "+100% + DTE<21 → trim 50%  |  -75% → close  |  "
+        "  [dim]EMA is senior signal — overrides contract rules when trend breaks. "
+        "Rules: +300% → close  |  +200% → trim  |  "
+        "+100% + DTE<21 → trim  |  -75% → close  |  "
         "DTE<5 → close regardless[/dim]\n"
     )
 
@@ -1663,6 +1695,7 @@ def _print_exit_signals(open_trades: list) -> None:
     with console.status(
         "[yellow]Computing EMA exit signals...[/yellow]", spinner="dots"
     ):
+        signal_list = []
         for t in open_trades:
             ticker = t["ticker"]
             try:
@@ -1673,7 +1706,7 @@ def _print_exit_signals(open_trades: list) -> None:
                     stock_price = hist[-1]["close"] if hist else 0.0
 
                 sig = compute_ema_exit_signal(hist, stock_price)
-
+                signal_list.append((t["id"], sig))
                 if not sig:
                     table.add_row(
                         str(t["id"]), ticker,
@@ -1696,6 +1729,7 @@ def _print_exit_signals(open_trades: list) -> None:
                     f"[{color}]{icon} {sig['action_note']}[/{color}]",
                 )
             except Exception:
+                signal_list.append((t["id"], {}))
                 table.add_row(
                     str(t["id"]), ticker, "—", "—", "—", "—",
                     "[dim]error[/dim]"
@@ -1712,6 +1746,7 @@ def _print_exit_signals(open_trades: list) -> None:
         "Trim 25% on close below 21 EMA  |  "
         "Sell full position below 50 EMA[/dim]\n"
     )
+    return {trade_id: sig for trade_id, sig in signal_list}
 
 def _cmd_portfolio(args: argparse.Namespace) -> None:
     """
@@ -1989,11 +2024,13 @@ def _cmd_portfolio(args: argparse.Namespace) -> None:
                 padding=(1, 2),
             ))
         # EMA exit signals
+        ema_signals = {}
         if getattr(args, 'exit_signals', False) and open_trades:
-            _print_exit_signals(open_trades)
-        # Contract profit-taking signals
+            ema_signals = _print_exit_signals(open_trades) or {}
+
+        # Contract profit-taking signals — now receives ema_signals
         if getattr(args, 'exit_signals', False) and open_trades:
-            _print_contract_signals(open_trades, live_prices)
+            _print_contract_signals(open_trades, live_prices, ema_signals)
 
     # -----------------------------------------------------------------------
     # Closed positions table
