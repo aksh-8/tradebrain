@@ -2962,6 +2962,182 @@ def _cmd_batch(args: argparse.Namespace) -> None:
         "  Re-run any: [bold]tradebrain rerun ID --budget 500[/bold][/dim]\n"
     )
 
+def _cmd_review(args: argparse.Namespace) -> None:
+    """
+    tradebrain review 62              — review open position #62 with fresh Gemini analysis
+    tradebrain review 62 --llm gemini — override LLM
+    tradebrain review --run 147       — show history detail for run #147
+    """
+    from bot.logger import get_trade_by_id, get_run_detail
+    from bot.research import research_ticker
+
+    # ── Use case 2: review a past research run ──
+    if args.run_id:
+        run = get_run_detail(args.run_id)
+        if not run:
+            console.print(f"[red]Run #{args.run_id} not found.[/red]")
+            return
+        _print_run_detail(run)
+        return
+
+    # ── Use case 1: review an open position ──
+    if args.trade_id is None:
+        console.print("[red]Provide a trade ID: tradebrain review 62[/red]")
+        return
+
+    trade = get_trade_by_id(args.trade_id)
+    if not trade:
+        console.print(f"[red]Trade #{args.trade_id} not found.[/red]")
+        return
+    if trade["status"] != "open":
+        console.print(
+            f"[yellow]Trade #{args.trade_id} is {trade['status']}. "
+            f"Use [bold]tradebrain history --id N[/bold] to review closed trades.[/yellow]"
+        )
+        return
+
+    ticker    = trade["ticker"]
+    strike    = trade["strike"]
+    side      = trade["side"]
+    expiry    = trade["expiry"]
+    entry     = trade["entry_cost"]
+    qty       = trade["quantity"]
+    total     = trade["total_invested"]
+    logged_at = (trade.get("logged_at") or "")[:10]
+
+    # fetch current price
+    with console.status(f"[cyan]Fetching current price for {ticker} position...[/cyan]", spinner="dots"):
+        now_price, _ = _fetch_live_contract_price(ticker, strike, side, expiry)
+
+    pnl_str = "unknown"
+    pnl_pct = None
+    if now_price is not None:
+        pnl = (now_price - entry) * qty
+        pnl_pct = pnl / total * 100
+        pnl_color = "green" if pnl >= 0 else "red"
+        pnl_str = f"[{pnl_color}]{'+' if pnl >= 0 else ''}${pnl:.0f} ({pnl_pct:+.1f}%)[/{pnl_color}]"
+
+    from datetime import date, datetime
+    dte = max(0, (datetime.strptime(expiry, "%Y-%m-%d").date() - date.today()).days)
+
+    # show position summary
+    console.print(Panel(
+        f"  [bold]Position[/bold]     #{args.trade_id} — {ticker} ${strike:g} {side.upper()} "
+        f"exp={expiry} ({dte} DTE)\n"
+        f"  [bold]Type[/bold]         {'REAL' if trade['trade_type'] == 'real' else 'PAPER'}\n"
+        f"  [bold]Quantity[/bold]     {qty} contract{'s' if qty > 1 else ''}\n"
+        f"  [bold]Entry[/bold]        ${entry:.2f}/contract  (logged {logged_at})\n"
+        f"  [bold]Now[/bold]          {'$' + f'{now_price:.2f}' if now_price else 'unavailable'}/contract\n"
+        f"  [bold]P&L[/bold]          {pnl_str}\n"
+        f"  [bold]Source[/bold]       {trade.get('source') or '—'}\n"
+        f"  [bold]Original thesis[/bold]  {trade.get('thesis') or '—'}",
+        title=f"[bold cyan]Position Review — #{args.trade_id}[/bold cyan]",
+        border_style="cyan",
+        padding=(1, 2),
+    ))
+
+    # run full research with position-specific thesis
+    pnl_context = f"{pnl_pct:+.1f}% P&L" if pnl_pct is not None else "unknown P&L"
+    review_thesis = (
+        f"POSITION REVIEW — holding {ticker} ${strike:g} {side} expiring {expiry} ({dte} DTE), "
+        f"{pnl_context}, entry ${entry:.2f}. "
+        f"Is the original thesis still intact? Should I hold, trim, or exit this position now?"
+    )
+
+    with console.status(
+        f"[cyan]Running fresh Gemini analysis on {ticker}...[/cyan]", spinner="dots"
+    ):
+        research = research_ticker(
+            ticker          = ticker,
+            thesis          = review_thesis,
+            budget          = entry,
+            context_tickers = [],
+            deep            = getattr(args, 'deep', False),
+        )
+
+    _print_research(research)
+
+    # position-specific recommendation panel
+    rec_lines = []
+
+    # EMA check
+    from bot.chain_yf import get_price_history, get_spot, ChainError
+    from bot.technicals import compute_ema_exit_signal
+    try:
+        hist = get_price_history(ticker, period="3mo")
+        try:
+            stock_price = get_spot(ticker)
+        except ChainError:
+            stock_price = hist[-1]["close"] if hist else 0.0
+        ema_sig = compute_ema_exit_signal(hist, stock_price)
+    except Exception:
+        ema_sig = {}
+
+    ema_action = ema_sig.get("action", "HOLD") if ema_sig else "HOLD"
+    ema_note   = ema_sig.get("action_note", "") if ema_sig else ""
+
+    if ema_action == "SELL":
+        ema_line = f"[red]🔴 EMA: {ema_note}[/red]"
+    elif ema_action == "TRIM":
+        ema_line = f"[yellow]⚠ EMA: {ema_note}[/yellow]"
+    else:
+        ema_line = f"[green]✅ EMA: {ema_note or 'above all EMAs'}[/green]"
+
+    rec_lines.append(ema_line)
+
+    # LLM direction vs position direction
+    data_direction  = research.recommended_direction
+    position_bullish = side == "call"
+    data_bullish     = data_direction == "bullish"
+
+    if data_bullish == position_bullish:
+        rec_lines.append(
+            f"[green]✅ Gemini agrees with your {side} position "
+            f"({data_direction}, {research.confidence} confidence)[/green]"
+        )
+    elif research.confidence == "high":
+        rec_lines.append(
+            f"[red]🔴 Gemini DISAGREES — data says {data_direction} "
+            f"({research.confidence} confidence) but you hold a {side}[/red]"
+        )
+    else:
+        rec_lines.append(
+            f"[yellow]⚠ Gemini leans {data_direction} ({research.confidence} confidence) "
+            f"— mixed signal for your {side}[/yellow]"
+        )
+
+    # DTE warning
+    if dte <= 5:
+        rec_lines.append(f"[red]🔴 DTE: only {dte} days left — close immediately[/red]")
+    elif dte <= 14:
+        rec_lines.append(f"[yellow]⚠ DTE: {dte} days — theta accelerating[/yellow]")
+    else:
+        rec_lines.append(f"[dim]DTE: {dte} days — adequate time remaining[/dim]")
+
+    # final combined recommendation
+    rec_lines.append("")
+    if ema_action == "SELL" and (not data_bullish == position_bullish) and research.confidence == "high":
+        rec_lines.append("[bold red]RECOMMENDATION: CLOSE — EMA broken AND data disagrees. Exit now.[/bold red]")
+    elif ema_action == "SELL":
+        rec_lines.append("[bold red]RECOMMENDATION: CLOSE — EMA trend broken. Protect remaining capital.[/bold red]")
+    elif ema_action == "TRIM" and pnl_pct is not None and pnl_pct > 50:
+        rec_lines.append("[bold yellow]RECOMMENDATION: TRIM 25-50% — EMA weakening but in profit. Lock in gains.[/bold yellow]")
+    elif ema_action == "TRIM":
+        rec_lines.append("[bold yellow]RECOMMENDATION: MONITOR — EMA weakening. Watch for daily close below next EMA level.[/bold yellow]")
+    elif not data_bullish == position_bullish and research.confidence == "high":
+        rec_lines.append("[bold red]RECOMMENDATION: CONSIDER CLOSING — data strongly disagrees with your direction.[/bold red]")
+    elif dte <= 14 and pnl_pct is not None and pnl_pct > 0:
+        rec_lines.append("[bold yellow]RECOMMENDATION: TRIM — profitable with limited time. Take some off.[/bold yellow]")
+    else:
+        rec_lines.append("[bold green]RECOMMENDATION: HOLD — thesis intact, trend ok, adequate DTE.[/bold green]")
+
+    console.print(Panel(
+        "\n".join(rec_lines),
+        title="[bold]Position Recommendation[/bold]",
+        border_style="magenta",
+        padding=(1, 2),
+    ))
+
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
@@ -3117,6 +3293,20 @@ def main() -> None:
                               help="Default LLM (overridden per-line if specified)")
         batch_args = batch_ap.parse_args(sys.argv[2:])
         _cmd_batch(batch_args)
+        return
+
+    if len(sys.argv) > 1 and sys.argv[1] == "review":
+        rev_ap = argparse.ArgumentParser(prog="tradebrain review")
+        rev_ap.add_argument("trade_id", nargs="?", type=int, default=None,
+                            help="Portfolio trade ID to review")
+        rev_ap.add_argument("--run",  type=int, dest="run_id", default=None,
+                            help="Research run ID to review from history")
+        rev_ap.add_argument("--llm",  choices=["gemini", "ollama"], default=None)
+        rev_ap.add_argument("--deep", action="store_true")
+        rev_args = rev_ap.parse_args(sys.argv[2:])
+        if rev_args.llm:
+            os.environ["LLM_PROVIDER"] = rev_args.llm
+        _cmd_review(rev_args)
         return
 
     ap = argparse.ArgumentParser(
