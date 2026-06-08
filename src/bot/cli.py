@@ -1468,6 +1468,92 @@ def _cmd_add_to_trade(args: argparse.Namespace) -> None:
         f"total invested: ${updated['total_invested']:.2f}\n"
     )
 
+def _cmd_trim_trade(args: argparse.Namespace) -> None:
+    """
+    tradebrain trim-trade 60 --contracts 1 --exit-cost 8.50
+    Partially closes a position. Works for both paper and real trades.
+    Updates quantity, buying power, and realized P&L correctly.
+    """
+    from bot.logger import get_trade_by_id, trim_trade
+
+    trade = get_trade_by_id(args.trade_id)
+    if not trade:
+        console.print(f"[red]Trade #{args.trade_id} not found.[/red]")
+        return
+    if trade["status"] != "open":
+        console.print(
+            f"[red]Trade #{args.trade_id} is {trade['status']} — cannot trim.[/red]"
+        )
+        return
+    if args.contracts >= trade["quantity"]:
+        console.print(
+            f"[red]Cannot trim {args.contracts} contracts — "
+            f"only {trade['quantity']} open. "
+            f"Use: [bold]tradebrain close-trade {args.trade_id}[/bold][/red]"
+        )
+        return
+
+    # auto-detect: option price (e.g. 8.50) vs dollar cost (e.g. 850)
+    exit_dollars = (
+        args.exit_cost if args.exit_cost >= 10
+        else round(args.exit_cost * 100, 2)
+    )
+
+    entry      = trade["entry_cost"]
+    remaining  = trade["quantity"] - args.contracts
+    pnl        = round((exit_dollars - entry) * args.contracts, 2)
+    pnl_pct    = round(pnl / (entry * args.contracts) * 100, 1) if entry > 0 else 0
+    pnl_color  = "green" if pnl >= 0 else "red"
+    trade_type = trade["trade_type"]
+    type_color = "green" if trade_type == "real" else "blue"
+
+    console.print(
+        f"\n  [bold]Trim #{args.trade_id}[/bold] — "
+        f"[{type_color}]{trade_type.upper()}[/{type_color}] "
+        f"{trade['ticker']} ${trade['strike']:g} {trade['side'].upper()} "
+        f"{trade['expiry']}\n\n"
+        f"  Selling:   [bold]{args.contracts}[/bold] contract{'s' if args.contracts > 1 else ''} "
+        f"@ ${exit_dollars:.2f} [dim](option price ${args.exit_cost:.2f})[/dim]\n"
+        f"  Entry was: ${entry:.2f}/contract\n"
+        f"  Realized:  [{pnl_color}]{'+' if pnl >= 0 else ''}${pnl:.0f} "
+        f"({pnl_pct:+.1f}%)[/{pnl_color}] on trimmed contracts\n"
+        f"  Remaining: [bold]{remaining}[/bold] contract{'s' if remaining > 1 else ''} "
+        f"still open @ ${entry:.2f} avg\n"
+    )
+
+    confirm = console.input("  Confirm? [y/N] ").strip().lower()
+    if confirm != "y":
+        console.print("  [dim]Cancelled.[/dim]")
+        return
+
+    updated = trim_trade(args.trade_id, args.contracts, exit_dollars)
+
+    console.print(Panel(
+        f"  [bold]ID[/bold]             #{updated['id']}\n"
+        f"  [bold]Type[/bold]           [{type_color}]{trade_type.upper()}[/{type_color}]\n"
+        f"  [bold]Contract[/bold]       {updated['ticker']} ${updated['strike']:g} "
+        f"{updated['side'].upper()} exp={updated['expiry']}\n"
+        f"  [bold]Trimmed[/bold]        {updated['contracts_sold']} contract"
+        f"{'s' if updated['contracts_sold'] > 1 else ''} "
+        f"@ ${updated['trim_exit_cost']:.2f}/contract "
+        f"[dim](${args.exit_cost:.2f} option price)[/dim]\n"
+        f"  [bold]Realized P&L[/bold]   [{pnl_color}]"
+        f"{'+' if updated['trim_pnl_dollars'] >= 0 else ''}"
+        f"${updated['trim_pnl_dollars']:.0f} "
+        f"({updated['trim_pnl_pct']:+.1f}%)[/{pnl_color}]\n"
+        f"  [bold]Remaining[/bold]      {updated['quantity']} contract"
+        f"{'s' if updated['quantity'] > 1 else ''} "
+        f"still open @ ${updated['entry_cost']:.2f} avg\n"
+        f"  [bold]Total invested[/bold]  ${updated['total_invested']:.2f}\n"
+        f"  [bold]Buying power[/bold]   updated — proceeds credited to "
+        f"{trade_type} account",
+        title=f"[bold {pnl_color}]Trimmed — #{updated['id']} "
+              f"({'Profit' if pnl >= 0 else 'Loss'} on trim)"
+              f"[/bold {pnl_color}]",
+        border_style=pnl_color,
+        padding=(1, 2),
+    ))
+
 def _cmd_portfolio_live(args: argparse.Namespace) -> None:
     """
     tradebrain portfolio --live
@@ -3199,6 +3285,18 @@ def main() -> None:
         _cmd_log_trade(lt_args)
         return
     
+    if len(sys.argv) > 1 and sys.argv[1] == "trim-trade":
+            tr_ap = argparse.ArgumentParser(prog="tradebrain trim-trade")
+            tr_ap.add_argument("trade_id",    type=int,   help="Trade ID to partially close")
+            tr_ap.add_argument("--contracts", type=int,   required=True,
+                            help="Number of contracts to sell")
+            tr_ap.add_argument("--exit-cost", type=float, required=True,
+                            dest="exit_cost",
+                            help="Exit price — option price (e.g. 8.50) or dollars (e.g. 850)")
+            tr_args = tr_ap.parse_args(sys.argv[2:])
+            _cmd_trim_trade(tr_args)
+            return
+
     # add to trade command
     if len(sys.argv) > 1 and sys.argv[1] == "add-to-trade":
         at_ap = argparse.ArgumentParser(prog="tradebrain add-to-trade")

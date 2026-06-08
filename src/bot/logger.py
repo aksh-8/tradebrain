@@ -222,11 +222,15 @@ def _init_paper_trades() -> None:
         );
         """)
     
-    # migrate existing table — add llm_provider if missing
+    # migrate existing table — add missing columns
     with _conn() as con:
         cols = [r[1] for r in con.execute("PRAGMA table_info(paper_trades)").fetchall()]
         if "llm_provider" not in cols:
             con.execute("ALTER TABLE paper_trades ADD COLUMN llm_provider TEXT")
+        if "realized_pnl_partial" not in cols:
+            con.execute(
+                "ALTER TABLE paper_trades ADD COLUMN realized_pnl_partial REAL DEFAULT 0"
+            )
 
 
 def log_paper_trade(
@@ -335,6 +339,60 @@ def add_to_trade(trade_id: int, contracts: int, cost_per_contract: float) -> dic
     return get_trade_by_id(trade_id)
 
 
+def trim_trade(trade_id: int, contracts_sold: int, exit_cost_per_contract: float) -> dict:
+    """
+    Partially closes a position by reducing quantity.
+    Calculates realized P&L on the sold contracts only.
+    Updates quantity, total_invested, and realized_pnl_partial.
+    Works for both paper and real trades.
+    """
+    _init_paper_trades()
+    trade = get_trade_by_id(trade_id)
+    if not trade:
+        raise ValueError(f"Trade ID {trade_id} not found.")
+    if trade["status"] != "open":
+        raise ValueError(f"Trade ID {trade_id} is already {trade['status']}.")
+    if contracts_sold >= trade["quantity"]:
+        raise ValueError(
+            f"Cannot trim {contracts_sold} — only {trade['quantity']} open. "
+            f"Use close-trade to close the full position."
+        )
+    if contracts_sold <= 0:
+        raise ValueError("Contracts sold must be a positive integer.")
+
+    entry_cost      = trade["entry_cost"]
+    remaining_qty   = trade["quantity"] - contracts_sold
+    new_total       = round(entry_cost * remaining_qty, 2)
+
+    pnl_on_trim     = round((exit_cost_per_contract - entry_cost) * contracts_sold, 2)
+    pnl_pct_on_trim = round(
+        pnl_on_trim / (entry_cost * contracts_sold) * 100
+        if entry_cost > 0 else 0, 1
+    )
+
+    existing_partial = trade.get("realized_pnl_partial") or 0.0
+
+    with _conn() as con:
+        con.execute(
+            """
+            UPDATE paper_trades
+            SET quantity             = ?,
+                total_invested       = ?,
+                realized_pnl_partial = ?
+            WHERE id = ?
+            """,
+            (remaining_qty, new_total,
+             round(existing_partial + pnl_on_trim, 2), trade_id),
+        )
+
+    updated = get_trade_by_id(trade_id)
+    updated["trim_pnl_dollars"] = pnl_on_trim
+    updated["trim_pnl_pct"]     = pnl_pct_on_trim
+    updated["contracts_sold"]   = contracts_sold
+    updated["trim_exit_cost"]   = exit_cost_per_contract
+    return updated
+
+
 def close_paper_trade(trade_id: int, exit_cost: float) -> dict:
     """
     Closes a trade at exit_cost (dollars per contract).
@@ -391,9 +449,16 @@ def get_paper_account_summary() -> dict:
             "SELECT pnl_dollars FROM paper_trades "
             "WHERE status IN ('closed','expired') AND trade_type='paper'"
         ).fetchall()
+        partial_trades = con.execute(
+            "SELECT realized_pnl_partial FROM paper_trades "
+            "WHERE status='open' AND trade_type='paper'"
+        ).fetchall()
 
     deployed     = sum(r["entry_cost"] * r["quantity"] for r in open_trades)
-    realized_pnl = sum(r["pnl_dollars"] or 0 for r in closed_trades)
+    realized_pnl = (
+        sum(r["pnl_dollars"] or 0 for r in closed_trades) +
+        sum(r["realized_pnl_partial"] or 0 for r in partial_trades)
+    )
     available    = starting - deployed + realized_pnl
 
     return {
@@ -422,9 +487,16 @@ def get_real_account_summary() -> dict:
             "SELECT pnl_dollars FROM paper_trades "
             "WHERE status IN ('closed','expired') AND trade_type='real'"
         ).fetchall()
+        partial_trades = con.execute(
+            "SELECT realized_pnl_partial FROM paper_trades "
+            "WHERE status='open' AND trade_type='real'"
+        ).fetchall()
 
     deployed     = sum(r["entry_cost"] * r["quantity"] for r in open_trades)
-    realized_pnl = sum(r["pnl_dollars"] or 0 for r in closed_trades)
+    realized_pnl = (
+        sum(r["pnl_dollars"] or 0 for r in closed_trades) +
+        sum(r["realized_pnl_partial"] or 0 for r in partial_trades)
+    )
     available    = starting - deployed + realized_pnl
 
     return {
