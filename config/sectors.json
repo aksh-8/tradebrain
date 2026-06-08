@@ -16,9 +16,12 @@
         "INTC": 0.4,
         "CBRS": 0.5,
         "NVTS": 1.1,
-        "ALAB": 0.75,
+        "ALAB": 0.6,
         "CRDO": 0.88,
-        "AOSL": 0.77
+        "AOSL": 0.77,
+        "ON": 0.6,
+        "RMBS": 0.92,
+        "FLEX": 0.98
       },
       "tickers": [
         "NVDA",
@@ -33,7 +36,10 @@
         "CRDO",
         "CBRS",
         "NVTS",
-        "AOSL"
+        "AOSL",
+        "ON",
+        "RMBS",
+        "FLEX"
       ],
       "correlated_sectors": [
         "semis_equipment",
@@ -77,8 +83,8 @@
       "leader_note": "AMAT and LRCX lead equipment. ASML is the global monopoly on EUV lithography - its moves signal the entire fab buildout.",
       "beta_to_leader": {
         "LRCX": 0.9,
-        "KLAC": 0.85,
-        "ASML": 0.7,
+        "KLAC": 0.87,
+        "ASML": 0.75,
         "ENTG": 0.75,
         "ACMR": 1.06
       },
@@ -161,14 +167,22 @@
         "GOOGL": 0.8,
         "AMZN": 0.75,
         "AAPL": 0.5,
-        "ORCL": 1.31
+        "ORCL": 1.31,
+        "AVT": 0.1,
+        "SMCI": 1.23,
+        "STX": 0.16,
+        "WDC": 0.1
       },
       "tickers": [
         "MSFT",
         "GOOGL",
         "AMZN",
         "AAPL",
-        "ORCL"
+        "ORCL",
+        "AVT",
+        "SMCI",
+        "STX",
+        "WDC"
       ],
       "correlated_sectors": [
         "semis_compute",
@@ -221,7 +235,8 @@
         "FROG": 0.53,
         "APP": 0.79,
         "TEAM": 0.74,
-        "IBM": 0.65
+        "IBM": 0.65,
+        "CDNS": 0.38
       },
       "tickers": [
         "PLTR",
@@ -238,7 +253,8 @@
         "FROG",
         "APP",
         "TEAM",
-        "IBM"
+        "IBM",
+        "CDNS"
       ],
       "correlated_sectors": [
         "big_tech"
@@ -259,7 +275,9 @@
         "NET": 0.8,
         "SNOW": 0.7,
         "DDOG": 0.75,
-        "LAES": 0.6
+        "LAES": 0.6,
+        "AKAM": 0.5,
+        "DOCN": 0.56
       },
       "tickers": [
         "CRWD",
@@ -270,7 +288,9 @@
         "NET",
         "SNOW",
         "DDOG",
-        "LAES"
+        "LAES",
+        "AKAM",
+        "DOCN"
       ],
       "correlated_sectors": [
         "big_tech",
@@ -315,7 +335,8 @@
         "AMBA": 0.6,
         "AEVA": 0.55,
         "UNP": 0.1,
-        "CAT": 0.1
+        "CAT": 0.1,
+        "AAON": 0.1
       },
       "tickers": [
         "PATH",
@@ -324,7 +345,8 @@
         "AMBA",
         "AEVA",
         "UNP",
-        "CAT"
+        "CAT",
+        "AAON"
       ],
       "correlated_sectors": [
         "semis_compute",
@@ -573,7 +595,8 @@
         "ENPH": 0.33,
         "NEXA": 0.41,
         "IMSR": 0.81,
-        "NNE": 0.85
+        "NNE": 0.85,
+        "UNIT": 0.17
       },
       "tickers": [
         "SMR",
@@ -596,7 +619,8 @@
         "ENPH",
         "NEXA",
         "IMSR",
-        "NNE"
+        "NNE",
+        "UNIT"
       ],
       "correlated_sectors": [
         "ai_infra"
@@ -613,12 +637,20 @@
         "HOOD",
         "COIN",
         "SOFI",
-        "AFRM"
+        "AFRM",
+        "C",
+        "GS",
+        "MS",
+        "VIRT"
       ],
       "beta_to_leader": {
         "HOOD": 0.67,
         "SOFI": 0.46,
-        "AFRM": 1.2
+        "AFRM": 1.2,
+        "C": 0.12,
+        "GS": 0.19,
+        "MS": 0.17,
+        "VIRT": 0.1
       },
       "cross_sector_signals": [],
       "correlated_sectors": [
@@ -1221,6 +1253,29 @@
     "hewlett packard enterprise company": "HPE",
     "hewlett packard enterprise comp": "HPE",
     "caterpillar inc.": "CAT",
-    "caterpillar, inc.": "CAT"
+    "caterpillar, inc.": "CAT",
+    "aaon, inc.": "AAON",
+    "akamai technologies, inc.": "AKAM",
+    "astera labs, inc.": "ALAB",
+    "asml holding n.v.": "ASML",
+    "asml holding n.v. - new york re": "ASML",
+    "avnet, inc.": "AVT",
+    "citigroup inc.": "C",
+    "citigroup, inc.": "C",
+    "cadence design systems, inc.": "CDNS",
+    "digitalocean holdings, inc.": "DOCN",
+    "the goldman sachs group, inc.": "GS",
+    "goldman sachs group, inc. (the)": "GS",
+    "kla corporation": "KLAC",
+    "on semiconductor corporation": "ON",
+    "rambus inc.": "RMBS",
+    "rambus, inc.": "RMBS",
+    "super micro computer, inc.": "SMCI",
+    "seagate technology holdings plc": "STX",
+    "western digital corporation": "WDC",
+    "uniti group inc.": "UNIT",
+    "morgan stanley": "MS",
+    "virtu financial, inc.": "VIRT",
+    "flex ltd.": "FLEX"
   }
 }
