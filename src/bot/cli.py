@@ -119,6 +119,25 @@ def _print_research(r: ResearchResult) -> None:
         )
         lines.append(f"[bold]Term struct  [/bold] [{term_color}]{r.term_structure}[/{term_color}]")
 
+    # weekly EMA extension signal
+    if r.extension_signal:
+        ext_color = (
+            "red"    if "EXTENDED" in r.extension_signal or "BELOW" in r.extension_signal
+            else "yellow" if "ELEVATED" in r.extension_signal
+            else "green"  if "AT WEEKLY" in r.extension_signal
+            else "cyan"
+        )
+        lines.append("")
+        lines.append(f"[bold]Weekly EMA[/bold]   [{ext_color}]{r.extension_signal}[/{ext_color}]")
+
+    # macro calendar
+    from bot.macro_calendar import get_macro_display_lines
+    macro_lines = get_macro_display_lines()
+    if macro_lines:
+        lines.append("")
+        for macro_line in macro_lines:
+            lines.append(f"[bold]Macro[/bold]        {macro_line}")
+            
     # news
     if r.news_summary:
         lines.append("")

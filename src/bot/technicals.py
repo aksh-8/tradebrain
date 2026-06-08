@@ -3,6 +3,39 @@ from __future__ import annotations
 import math
 from typing import Optional
 
+def _resample_to_weekly(history: list[dict]) -> list[float]:
+    """
+    Resamples daily OHLCV history to weekly closing prices.
+    Takes the last close of each calendar week.
+    Returns list of weekly closes, oldest first.
+    """
+    from datetime import datetime
+    if not history:
+        return []
+    weekly: dict[str, float] = {}
+    for h in history:
+        try:
+            d = datetime.strptime(h["date"], "%Y-%m-%d")
+        except Exception:
+            continue
+        week_key = f"{d.isocalendar()[0]}-W{d.isocalendar()[1]:02d}"
+        weekly[week_key] = h["close"]
+    return [weekly[k] for k in sorted(weekly.keys())]
+
+
+def compute_weekly_ema(history: list[dict], period: int) -> Optional[float]:
+    """
+    Computes EMA on weekly closes resampled from daily history.
+    """
+    weekly_closes = _resample_to_weekly(history)
+    n = len(weekly_closes)
+    if n < period:
+        return None
+    k = 2.0 / (period + 1)
+    val = sum(weekly_closes[:period]) / period
+    for price in weekly_closes[period:]:
+        val = price * k + val * (1 - k)
+    return round(val, 2)
 
 def compute_technicals(history: list[dict]) -> dict:
     """
@@ -161,6 +194,57 @@ def compute_technicals(history: list[dict]) -> dict:
     result["bb_lower"] = bb_lower
 
     current_price = closes[-1]
+
+    # -------------------------------------------------------------------------
+    # Weekly EMAs + extension signal
+    # -------------------------------------------------------------------------
+    weekly_closes = _resample_to_weekly(history)
+    n_weekly = len(weekly_closes)
+
+    def weekly_ema(period: int) -> Optional[float]:
+        if n_weekly < period:
+            return None
+        k = 2.0 / (period + 1)
+        val = sum(weekly_closes[:period]) / period
+        for price in weekly_closes[period:]:
+            val = price * k + val * (1 - k)
+        return round(val, 2)
+
+    result["weekly_ema_8"]  = weekly_ema(8)
+    result["weekly_ema_21"] = weekly_ema(21)
+
+    # extension signal — price vs weekly 8 EMA
+    w8 = result.get("weekly_ema_8")
+    if w8 and w8 > 0 and current_price > 0:
+        pct_from_w8ema = round((current_price - w8) / w8 * 100, 1)
+        result["pct_from_weekly_ema8"] = pct_from_w8ema
+
+        if pct_from_w8ema > 25:
+            result["extension_signal"] = (
+                f"EXTENDED {pct_from_w8ema:+.1f}% above weekly 8 EMA (${w8:.2f}) — "
+                f"DO NOT ENTER. Wait for pullback to ${w8 * 1.05:.2f}-${w8 * 1.10:.2f} entry zone."
+            )
+        elif pct_from_w8ema > 15:
+            result["extension_signal"] = (
+                f"ELEVATED {pct_from_w8ema:+.1f}% above weekly 8 EMA (${w8:.2f}) — "
+                f"late-stage entry, reduce size. Better entries at ${w8 * 1.05:.2f}-${w8 * 1.08:.2f}."
+            )
+        elif pct_from_w8ema >= -3:
+            result["extension_signal"] = (
+                f"AT WEEKLY 8 EMA — {pct_from_w8ema:+.1f}% from ${w8:.2f}. "
+                f"Prime entry zone. Institutional accumulation level."
+            )
+        elif pct_from_w8ema >= -10:
+            result["extension_signal"] = (
+                f"SLIGHTLY BELOW weekly 8 EMA (${w8:.2f}) — "
+                f"watch for reclaim. If it holds and bounces, strong entry."
+            )
+        else:
+            result["extension_signal"] = (
+                f"BELOW weekly 8 EMA by {abs(pct_from_w8ema):.1f}% (${w8:.2f}) — "
+                f"trend weakening. Avoid new longs until reclaim."
+            )
+
     if bb_upper and bb_lower and bb_mid:
         bb_range = bb_upper - bb_lower
         if bb_range > 0:
@@ -485,6 +569,14 @@ def format_technicals_for_llm(t: dict) -> str:
     # Setup signal — highest value line for LLM
     if t.get("setup_signal"):
         lines.append(f"Setup:  *** {t['setup_signal']} ***")
+    
+    # Weekly EMA extension
+    w8  = t.get("weekly_ema_8")
+    pw8 = t.get("pct_from_weekly_ema8")
+    if w8 and pw8 is not None:
+        lines.append(f"Wkly8E: ${w8:.2f}  ({pw8:+.1f}% from weekly 8 EMA)")
+    if t.get("extension_signal"):
+        lines.append(f"Ext:    *** {t['extension_signal']} ***")
 
     # ADX
     if t.get("adx_note"):

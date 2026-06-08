@@ -730,6 +730,7 @@ def _check_thesis(
     expected_move:          Optional[str] = None,
     iv_skew:                Optional[str] = None,
     term_structure:         Optional[str] = None,
+    macro_context:          Optional[str] = None,
 ) -> tuple[Optional[str], Optional[str], Direction, str]:
 
     use_gemini = _gemini_available()
@@ -797,6 +798,7 @@ def _check_thesis(
 - Expected move:  {expected_move or 'not available'}
 - IV skew:        {iv_skew or 'not available'}
 - Term structure: {term_structure or 'not available'}
+- Macro calendar: {macro_context or 'no major events in next 21 days'}
 - News headlines: {news_summary or 'none'}
 - News detail:    {article_context or 'headlines only — no full articles available'}
 {context_note}
@@ -987,6 +989,11 @@ def research_ticker(
     iv_skew        = _compute_iv_skew(ticker, price)
     term_structure = _compute_term_structure(ticker, price)
 
+    # macro calendar
+    from bot.macro_calendar import get_upcoming_events, format_macro_for_llm
+    macro_events  = get_upcoming_events(days_ahead=21)
+    macro_context = format_macro_for_llm(macro_events)
+
     # LLM thesis check
     verdict, reasoning, direction, confidence = _check_thesis(
         ticker             = ticker,
@@ -1012,6 +1019,7 @@ def research_ticker(
         expected_move          = expected_move,
         iv_skew                = iv_skew,
         term_structure         = term_structure,
+        macro_context          = macro_context,
     )
 
     skip_reason: Optional[str] = None
@@ -1046,4 +1054,6 @@ def research_ticker(
         expected_move          = expected_move,
         iv_skew                = iv_skew,
         term_structure         = term_structure,
+        extension_signal       = technicals.get("extension_signal"),
+        macro_context          = macro_context,
     )

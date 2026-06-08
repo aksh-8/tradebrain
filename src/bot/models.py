@@ -68,6 +68,8 @@ class ResearchResult:
     expected_move: Optional[str] = None   # "±8.2% by Jun 18"
     iv_skew: Optional[str] = None   # "put skew 1.31 — market pricing downside"
     term_structure: Optional[str] = None   # "inverted 1.42 — event risk priced in"
+    extension_signal:         Optional[str] = None
+    macro_context:            Optional[str] = None
 
 @dataclass(frozen=True)
 class Pick:
