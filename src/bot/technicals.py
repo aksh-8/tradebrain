@@ -367,6 +367,58 @@ def compute_technicals(history: list[dict]) -> dict:
             )
 
     # -------------------------------------------------------------------------
+    # Undercut & Rally detection
+    # -------------------------------------------------------------------------
+    if len(closes) >= 10 and len(history) >= 10:
+        lookback_lows  = [h["low"]  for h in history[-20:-3]] if len(history) >= 23 else [h["low"] for h in history[:-3]]
+        lookback_closes = closes[-20:-3] if len(closes) >= 23 else closes[:-3]
+        recent_lows    = [h["low"]  for h in history[-3:]]
+        recent_closes  = closes[-3:]
+
+        if lookback_lows and lookback_closes:
+            swing_low       = min(lookback_lows)
+            swing_low_close = min(lookback_closes)
+
+            # undercut: any recent low went below OR within 2% of the prior swing low
+            undercut  = any(low < swing_low * 1.02 for low in recent_lows)
+
+            # reclaim: current price is back above the swing low close
+            reclaimed = current_price > swing_low_close
+
+            # volume check
+            vol_avg          = sum(volumes[-20:]) / 20 if len(volumes) >= 20 else None
+            undercut_vol     = min(volumes[-3:])  if len(volumes) >= 3  else None
+            low_vol_undercut = (
+                undercut_vol < vol_avg * 0.85
+                if vol_avg and undercut_vol else False
+            )
+
+            # also detect: price is below swing low (undercut in progress)
+            undercut_in_progress = (
+                current_price < swing_low_close and
+                any(low < swing_low for low in recent_lows)
+            )
+
+            if undercut and reclaimed:
+                if low_vol_undercut:
+                    result["unr_signal"] = (
+                        f"UNDERCUT & RALLY — broke below prior low (${swing_low:.2f}) "
+                        f"on low volume then reclaimed. Shorts trapped, weak hands flushed. "
+                        f"High-probability bounce setup."
+                    )
+                else:
+                    result["unr_signal"] = (
+                        f"POTENTIAL U&R — undercut ${swing_low:.2f} then reclaimed. "
+                        f"Watch for volume expansion to confirm next leg up."
+                    )
+            elif undercut_in_progress:
+                result["unr_signal"] = (
+                    f"UNDERCUT IN PROGRESS — below prior low (${swing_low:.2f}). "
+                    f"Watch for reclaim above ${swing_low_close:.2f} — "
+                    f"if it reclaims, strong U&R setup."
+                )
+    
+    # -------------------------------------------------------------------------
     # Price structure
     # -------------------------------------------------------------------------
     week_52_high = max(highs)
@@ -569,6 +621,10 @@ def format_technicals_for_llm(t: dict) -> str:
     # Setup signal — highest value line for LLM
     if t.get("setup_signal"):
         lines.append(f"Setup:  *** {t['setup_signal']} ***")
+    
+    # U&R signal
+    if t.get("unr_signal"):
+        lines.append(f"U&R:    *** {t['unr_signal']} ***")
     
     # Weekly EMA extension
     w8  = t.get("weekly_ema_8")

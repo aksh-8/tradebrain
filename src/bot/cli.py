@@ -130,6 +130,15 @@ def _print_research(r: ResearchResult) -> None:
         lines.append("")
         lines.append(f"[bold]Weekly EMA[/bold]   [{ext_color}]{r.extension_signal}[/{ext_color}]")
 
+    # U&R signal
+    if r.unr_signal:
+        unr_color = (
+            "green"  if "UNDERCUT & RALLY" in r.unr_signal
+            else "yellow" if "POTENTIAL" in r.unr_signal
+            else "cyan"
+        )
+        lines.append(f"[bold]U&R Signal[/bold]   [{unr_color}]{r.unr_signal}[/{unr_color}]")
+
     # macro calendar
     from bot.macro_calendar import get_macro_display_lines
     macro_lines = get_macro_display_lines()
@@ -137,7 +146,7 @@ def _print_research(r: ResearchResult) -> None:
         lines.append("")
         for macro_line in macro_lines:
             lines.append(f"[bold]Macro[/bold]        {macro_line}")
-            
+
     # news
     if r.news_summary:
         lines.append("")

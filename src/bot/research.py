@@ -1056,4 +1056,5 @@ def research_ticker(
         term_structure         = term_structure,
         extension_signal       = technicals.get("extension_signal"),
         macro_context          = macro_context,
+        unr_signal             = technicals.get("unr_signal"),
     )

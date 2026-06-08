@@ -70,6 +70,7 @@ class ResearchResult:
     term_structure: Optional[str] = None   # "inverted 1.42 — event risk priced in"
     extension_signal:         Optional[str] = None
     macro_context:            Optional[str] = None
+    unr_signal:               Optional[str] = None
 
 @dataclass(frozen=True)
 class Pick:
