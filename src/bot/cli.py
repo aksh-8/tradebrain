@@ -2622,7 +2622,7 @@ def _cmd_rerun(args: argparse.Namespace) -> None:
     )
 
     with console.status("[cyan]Re-running research with live prices...[/cyan]", spinner="dots"):
-        research, picks, reason, direction_note, earnings_dte_note, pre_picks = run(intake)
+        research, picks, reason, direction_note, earnings_dte_note, pre_picks = run(intake, deep=args.deep)
 
     _print_research(research)
 
@@ -3013,7 +3013,7 @@ def _cmd_batch(args: argparse.Namespace) -> None:
 
         with console.status("", spinner="dots"):
             try:
-                research, picks, reason, *_ = run(intake)
+                research, picks, reason, *_ = run(intake, deep=args.deep)
                 results.append({
                     'ticker':    research.ticker,
                     'direction': research.recommended_direction,
@@ -3381,6 +3381,8 @@ def main() -> None:
                            help="Override budget from original run")
         rr_ap.add_argument("--llm", choices=["gemini", "ollama"], default=None,
                            help="Override LLM provider")
+        rr_ap.add_argument("--deep", action="store_true",
+                           help="Deep research mode")
         rr_args = rr_ap.parse_args(sys.argv[2:])
         if rr_args.llm:
             os.environ["LLM_PROVIDER"] = rr_args.llm
@@ -3417,6 +3419,8 @@ def main() -> None:
                               help="Default budget (overridden per-line if specified)")
         batch_ap.add_argument("--llm", choices=["gemini","ollama"], default=None,
                               help="Default LLM (overridden per-line if specified)")
+        batch_ap.add_argument("--deep", action="store_true",
+                              help="Deep research mode for each thesis")
         batch_args = batch_ap.parse_args(sys.argv[2:])
         _cmd_batch(batch_args)
         return
