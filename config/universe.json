@@ -173,7 +173,15 @@
     "VIRT",
     "FLEX",
     "QCOM",
-    "VECO"
+    "VECO",
+    "RUN",
+    "FUTU",
+    "KHC",
+    "WM",
+    "PYPL",
+    "NXPI",
+    "NKE",
+    "PEP"
   ],
   "proxies": {
     "SPY": "IWM",

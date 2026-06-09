@@ -22,7 +22,8 @@
         "ON": 0.6,
         "RMBS": 0.92,
         "FLEX": 0.98,
-        "QCOM": 0.1
+        "QCOM": 0.1,
+        "NXPI": 0.2
       },
       "tickers": [
         "NVDA",
@@ -41,7 +42,8 @@
         "ON",
         "RMBS",
         "FLEX",
-        "QCOM"
+        "QCOM",
+        "NXPI"
       ],
       "correlated_sectors": [
         "semis_equipment",
@@ -175,7 +177,10 @@
         "AVT": 0.1,
         "SMCI": 1.23,
         "STX": 0.16,
-        "WDC": 0.1
+        "WDC": 0.1,
+        "KHC": 0.1,
+        "NKE": 0.33,
+        "PEP": 0.1
       },
       "tickers": [
         "MSFT",
@@ -186,7 +191,10 @@
         "AVT",
         "SMCI",
         "STX",
-        "WDC"
+        "WDC",
+        "KHC",
+        "NKE",
+        "PEP"
       ],
       "correlated_sectors": [
         "semis_compute",
@@ -340,7 +348,8 @@
         "AEVA": 0.55,
         "UNP": 0.1,
         "CAT": 0.1,
-        "AAON": 0.1
+        "AAON": 0.1,
+        "WM": 0.1
       },
       "tickers": [
         "PATH",
@@ -350,7 +359,8 @@
         "AEVA",
         "UNP",
         "CAT",
-        "AAON"
+        "AAON",
+        "WM"
       ],
       "correlated_sectors": [
         "semis_compute",
@@ -600,7 +610,8 @@
         "NEXA": 0.41,
         "IMSR": 0.81,
         "NNE": 0.85,
-        "UNIT": 0.17
+        "UNIT": 0.17,
+        "RUN": 0.28
       },
       "tickers": [
         "SMR",
@@ -624,7 +635,8 @@
         "NEXA",
         "IMSR",
         "NNE",
-        "UNIT"
+        "UNIT",
+        "RUN"
       ],
       "correlated_sectors": [
         "ai_infra"
@@ -645,7 +657,9 @@
         "C",
         "GS",
         "MS",
-        "VIRT"
+        "VIRT",
+        "FUTU",
+        "PYPL"
       ],
       "beta_to_leader": {
         "HOOD": 0.67,
@@ -654,7 +668,9 @@
         "C": 0.12,
         "GS": 0.19,
         "MS": 0.17,
-        "VIRT": 0.1
+        "VIRT": 0.1,
+        "FUTU": 0.3,
+        "PYPL": 0.22
       },
       "cross_sector_signals": [],
       "correlated_sectors": [
@@ -1282,6 +1298,14 @@
     "virtu financial, inc.": "VIRT",
     "flex ltd.": "FLEX",
     "qualcomm incorporated": "QCOM",
-    "veeco instruments inc.": "VECO"
+    "veeco instruments inc.": "VECO",
+    "sunrun inc.": "RUN",
+    "futu holdings limited": "FUTU",
+    "the kraft heinz company": "KHC",
+    "waste management, inc.": "WM",
+    "paypal holdings, inc.": "PYPL",
+    "nxp semiconductors n.v.": "NXPI",
+    "nike, inc.": "NKE",
+    "pepsico, inc.": "PEP"
   }
 }
