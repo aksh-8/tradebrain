@@ -21,7 +21,8 @@
         "AOSL": 0.77,
         "ON": 0.6,
         "RMBS": 0.92,
-        "FLEX": 0.98
+        "FLEX": 0.98,
+        "QCOM": 0.1
       },
       "tickers": [
         "NVDA",
@@ -39,7 +40,8 @@
         "AOSL",
         "ON",
         "RMBS",
-        "FLEX"
+        "FLEX",
+        "QCOM"
       ],
       "correlated_sectors": [
         "semis_equipment",
@@ -86,7 +88,8 @@
         "KLAC": 0.87,
         "ASML": 0.75,
         "ENTG": 0.75,
-        "ACMR": 1.06
+        "ACMR": 1.06,
+        "VECO": 0.78
       },
       "tickers": [
         "AMAT",
@@ -94,7 +97,8 @@
         "KLAC",
         "ASML",
         "ENTG",
-        "ACMR"
+        "ACMR",
+        "VECO"
       ],
       "correlated_sectors": [
         "semis_compute",
@@ -1276,6 +1280,8 @@
     "uniti group inc.": "UNIT",
     "morgan stanley": "MS",
     "virtu financial, inc.": "VIRT",
-    "flex ltd.": "FLEX"
+    "flex ltd.": "FLEX",
+    "qualcomm incorporated": "QCOM",
+    "veeco instruments inc.": "VECO"
   }
 }

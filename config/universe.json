@@ -171,7 +171,9 @@
     "UNIT",
     "MS",
     "VIRT",
-    "FLEX"
+    "FLEX",
+    "QCOM",
+    "VECO"
   ],
   "proxies": {
     "SPY": "IWM",
