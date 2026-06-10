@@ -180,7 +180,9 @@
         "WDC": 0.1,
         "KHC": 0.1,
         "NKE": 0.33,
-        "PEP": 0.1
+        "PEP": 0.1,
+        "MCD": 2.0,
+        "TSCO": 2.0
       },
       "tickers": [
         "MSFT",
@@ -194,7 +196,9 @@
         "WDC",
         "KHC",
         "NKE",
-        "PEP"
+        "PEP",
+        "MCD",
+        "TSCO"
       ],
       "correlated_sectors": [
         "semis_compute",
@@ -248,7 +252,8 @@
         "APP": 0.79,
         "TEAM": 0.74,
         "IBM": 0.65,
-        "CDNS": 0.38
+        "CDNS": 0.38,
+        "ADBE": 2.0
       },
       "tickers": [
         "PLTR",
@@ -266,7 +271,8 @@
         "APP",
         "TEAM",
         "IBM",
-        "CDNS"
+        "CDNS",
+        "ADBE"
       ],
       "correlated_sectors": [
         "big_tech"
@@ -659,7 +665,9 @@
         "MS",
         "VIRT",
         "FUTU",
-        "PYPL"
+        "PYPL",
+        "MA",
+        "NU"
       ],
       "beta_to_leader": {
         "HOOD": 0.67,
@@ -670,7 +678,9 @@
         "MS": 0.17,
         "VIRT": 0.1,
         "FUTU": 0.3,
-        "PYPL": 0.22
+        "PYPL": 0.22,
+        "MA": 2.0,
+        "NU": 2.0
       },
       "cross_sector_signals": [],
       "correlated_sectors": [
@@ -1306,6 +1316,11 @@
     "paypal holdings, inc.": "PYPL",
     "nxp semiconductors n.v.": "NXPI",
     "nike, inc.": "NKE",
-    "pepsico, inc.": "PEP"
+    "pepsico, inc.": "PEP",
+    "adobe inc.": "ADBE",
+    "mcdonald's corporation": "MCD",
+    "tractor supply company": "TSCO",
+    "mastercard incorporated": "MA",
+    "nu holdings ltd.": "NU"
   }
 }

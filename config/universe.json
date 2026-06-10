@@ -181,7 +181,12 @@
     "PYPL",
     "NXPI",
     "NKE",
-    "PEP"
+    "PEP",
+    "ADBE",
+    "MCD",
+    "TSCO",
+    "MA",
+    "NU"
   ],
   "proxies": {
     "SPY": "IWM",
