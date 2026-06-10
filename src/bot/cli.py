@@ -1883,18 +1883,6 @@ def _cmd_portfolio(args: argparse.Namespace) -> None:
     elif args.paper and not args.real:
         trades = [t for t in trades if t["trade_type"] == "paper"]
 
-    if not trades:
-        console.print(Panel(
-            "[dim]No trades logged yet.\n\n"
-            "Log your first trade with:\n"
-            "  [bold]tradebrain log-trade NVDA --strike 235 --expiry 2026-06-18 "
-            "--side call --quantity 1 --paper --source \"tradebrain\"[/bold][/dim]",
-            title="[bold]Portfolio — No Trades[/bold]",
-            border_style="dim",
-            padding=(1, 2),
-        ))
-        return
-
     open_trades   = [t for t in trades if t["status"] == "open"]
     closed_trades = [t for t in trades if t["status"] in ("closed", "expired")]
 
@@ -2033,6 +2021,18 @@ def _cmd_portfolio(args: argparse.Namespace) -> None:
         border_style="white",
         padding=(1, 2),
     ))
+
+    if not trades:
+        console.print(Panel(
+            "[dim]No trades logged yet.\n\n"
+            "Log your first trade with:\n"
+            "  [bold]tradebrain log-trade NVDA --strike 235 --expiry 2026-06-18 "
+            "--side call --quantity 1 --paper --source \"tradebrain\"[/bold][/dim]",
+            title="[bold]Portfolio — No Trades[/bold]",
+            border_style="dim",
+            padding=(1, 2),
+        ))
+        return
 
     # -----------------------------------------------------------------------
     # Open positions table
@@ -3252,6 +3252,184 @@ def _cmd_review(args: argparse.Namespace) -> None:
         padding=(1, 2),
     ))
 
+
+def _cmd_account(args: argparse.Namespace) -> None:
+    """
+    tradebrain account --deposit 500 --paper --note "day trading profits"
+    tradebrain account --withdraw 200 --real  --note "took some out"
+    tradebrain account --history --paper
+    tradebrain account --history --real
+    """
+    from bot.logger import (
+        add_account_transaction,
+        get_account_transactions,
+        get_paper_account_summary,
+        get_real_account_summary,
+    )
+
+    trade_type = "real" if args.real else "paper"
+    type_color = "green" if trade_type == "real" else "blue"
+    type_label = "REAL" if trade_type == "real" else "PAPER"
+
+    # ── History view ──────────────────────────────────────────────────────
+    if args.history:
+        txns = get_account_transactions(trade_type, n=30)
+        if not txns:
+            console.print(
+                f"[dim]No transactions for {type_label} account.[/dim]"
+            )
+            return
+
+        table = Table(
+            box=box.SIMPLE_HEAD,
+            show_header=True,
+            header_style="bold cyan",
+            padding=(0, 1),
+        )
+        table.add_column("ID",     style="dim", width=5)
+        table.add_column("Date",   justify="left")
+        table.add_column("Type",   justify="center")
+        table.add_column("Amount", justify="right")
+        table.add_column("Note",   justify="left", style="dim")
+
+        running = 0.0
+        for t in reversed(txns):
+            amt   = t["amount"]
+            ttype = t["type"]
+            running += amt if ttype == "deposit" else -amt
+            color = "green" if ttype == "deposit" else "red"
+            sign  = "+" if ttype == "deposit" else "-"
+            table.add_row(
+                str(t["id"]),
+                (t["ts"] or "")[:10],
+                f"[{color}]{ttype.upper()}[/{color}]",
+                f"[{color}]{sign}${amt:,.2f}[/{color}]",
+                t["note"] or "—",
+            )
+
+        # summary below table
+        acct = get_paper_account_summary() if trade_type == "paper" else get_real_account_summary()
+
+        console.print(Panel(
+            table,
+            title=f"[bold {type_color}]{type_label} Account — Transaction History[/bold {type_color}]",
+            border_style=type_color,
+            padding=(1, 1),
+        ))
+        console.print(
+            f"  [dim]Starting base:  ${acct['starting']:,.2f}  |  "
+            f"Available now:  ${acct['available']:,.2f}  |  "
+            f"Realized P&L:  "
+            + (f"[green]+${acct['realized_pnl']:,.2f}[/green]" if acct['realized_pnl'] >= 0
+               else f"[red]-${abs(acct['realized_pnl']):,.2f}[/red]")
+            + "[/dim]\n"
+        )
+        return
+
+    # ── Deposit ───────────────────────────────────────────────────────────
+    if args.deposit is not None:
+        amount = args.deposit
+        if amount <= 0:
+            console.print("[red]Amount must be greater than 0.[/red]")
+            return
+
+        acct_before = get_paper_account_summary() if trade_type == "paper" else get_real_account_summary()
+        txn_id = add_account_transaction(trade_type, "deposit", amount, args.note or "")
+        acct_after  = get_paper_account_summary() if trade_type == "paper" else get_real_account_summary()
+
+        console.print(Panel(
+            f"  [bold]Account[/bold]      [{type_color}]{type_label}[/{type_color}]\n"
+            f"  [bold]Transaction[/bold]  [green]DEPOSIT +${amount:,.2f}[/green]\n"
+            f"  [bold]Note[/bold]         {args.note or '—'}\n"
+            f"  [bold]Txn ID[/bold]       #{txn_id}\n"
+            f"\n"
+            f"  [bold]Before[/bold]       Available: ${acct_before['available']:,.2f}  |  "
+            f"Capital base: ${acct_before['starting']:,.2f}\n"
+            f"  [bold]After[/bold]        Available: [green]${acct_after['available']:,.2f}[/green]  |  "
+            f"Capital base: [green]${acct_after['starting']:,.2f}[/green]\n"
+            f"\n"
+            f"  [dim]P&L is unchanged — deposit only affects buying power.[/dim]",
+            title=f"[bold green]Deposit Recorded[/bold green]",
+            border_style="green",
+            padding=(1, 2),
+        ))
+        return
+
+    # ── Withdrawal ────────────────────────────────────────────────────────
+    if args.withdraw is not None:
+        amount = args.withdraw
+        if amount <= 0:
+            console.print("[red]Amount must be greater than 0.[/red]")
+            return
+
+        acct_before = get_paper_account_summary() if trade_type == "paper" else get_real_account_summary()
+
+        if amount > acct_before["available"]:
+            console.print(
+                f"  [yellow]⚠ Withdrawal ${amount:,.2f} exceeds available "
+                f"${acct_before['available']:,.2f}.[/yellow]\n"
+                f"  [dim]Logging anyway — buying power will go negative.[/dim]\n"
+            )
+
+        txn_id = add_account_transaction(trade_type, "withdrawal", amount, args.note or "")
+        acct_after = get_paper_account_summary() if trade_type == "paper" else get_real_account_summary()
+
+        avail_color = "green" if acct_after["available"] >= 0 else "red"
+
+        console.print(Panel(
+            f"  [bold]Account[/bold]      [{type_color}]{type_label}[/{type_color}]\n"
+            f"  [bold]Transaction[/bold]  [red]WITHDRAWAL -${amount:,.2f}[/red]\n"
+            f"  [bold]Note[/bold]         {args.note or '—'}\n"
+            f"  [bold]Txn ID[/bold]       #{txn_id}\n"
+            f"\n"
+            f"  [bold]Before[/bold]       Available: ${acct_before['available']:,.2f}  |  "
+            f"Capital base: ${acct_before['starting']:,.2f}\n"
+            f"  [bold]After[/bold]        Available: [{avail_color}]${acct_after['available']:,.2f}[/{avail_color}]  |  "
+            f"Capital base: ${acct_after['starting']:,.2f}\n"
+            f"\n"
+            f"  [dim]P&L is unchanged — withdrawal only affects buying power.[/dim]",
+            title=f"[bold red]Withdrawal Recorded[/bold red]",
+            border_style="red",
+            padding=(1, 2),
+        ))
+        return
+
+    # ── No action — show current balances ─────────────────────────────────
+    paper_acct = get_paper_account_summary()
+    real_acct  = get_real_account_summary()
+
+    lines = []
+    lines.append(
+        f"  [bold blue]📄 PAPER[/bold blue]   "
+        f"Capital base: [bold]${paper_acct['starting']:,.2f}[/bold]   "
+        f"Available: [bold]${paper_acct['available']:,.2f}[/bold]   "
+        f"Realized P&L: "
+        + (f"[green]+${paper_acct['realized_pnl']:,.2f}[/green]" if paper_acct['realized_pnl'] >= 0
+           else f"[red]-${abs(paper_acct['realized_pnl']):,.2f}[/red]")
+    )
+    lines.append(
+        f"  [bold green]💵 REAL[/bold green]    "
+        f"Capital base: [bold]${real_acct['starting']:,.2f}[/bold]   "
+        f"Available: [bold]${real_acct['available']:,.2f}[/bold]   "
+        f"Realized P&L: "
+        + (f"[green]+${real_acct['realized_pnl']:,.2f}[/green]" if real_acct['realized_pnl'] >= 0
+           else f"[red]-${abs(real_acct['realized_pnl']):,.2f}[/red]")
+    )
+    lines.append("")
+    lines.append(
+        "  [dim]tradebrain account --deposit 500 --paper --note \"day trade profits\"\n"
+        "  tradebrain account --withdraw 200 --real  --note \"took profits out\"\n"
+        "  tradebrain account --history --paper[/dim]"
+    )
+
+    console.print(Panel(
+        "\n".join(lines),
+        title="[bold]Account Balances[/bold]",
+        border_style="white",
+        padding=(1, 2),
+    ))
+
+
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
@@ -3437,6 +3615,25 @@ def main() -> None:
         if rev_args.llm:
             os.environ["LLM_PROVIDER"] = rev_args.llm
         _cmd_review(rev_args)
+        return
+
+    if len(sys.argv) > 1 and sys.argv[1] == "account":
+        acct_ap = argparse.ArgumentParser(prog="tradebrain account")
+        acct_ap.add_argument("--deposit",  type=float, default=None,
+                             help="Amount to deposit (e.g. 500)")
+        acct_ap.add_argument("--withdraw", type=float, default=None,
+                             help="Amount to withdraw (e.g. 200)")
+        acct_ap.add_argument("--note",     type=str,   default="",
+                             help="Optional note (e.g. 'day trading profits')")
+        acct_ap.add_argument("--history",  action="store_true",
+                             help="Show transaction history")
+        type_group = acct_ap.add_mutually_exclusive_group()
+        type_group.add_argument("--paper", action="store_true",
+                                help="Paper account (default)")
+        type_group.add_argument("--real",  action="store_true",
+                                help="Real account")
+        acct_args = acct_ap.parse_args(sys.argv[2:])
+        _cmd_account(acct_args)
         return
 
     ap = argparse.ArgumentParser(

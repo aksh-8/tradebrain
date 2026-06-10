@@ -6,6 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+from bot.config import get_settings
 from bot.models import Intake, ResearchResult, Pick
 
 
@@ -59,6 +60,15 @@ def _init() -> None:
             relaxed     INTEGER,
             relax_note  TEXT,
             why         TEXT
+        );
+                          
+        CREATE TABLE IF NOT EXISTS account_transactions (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            ts          TEXT    NOT NULL DEFAULT (datetime('now')),
+            trade_type  TEXT    NOT NULL,
+            type        TEXT    NOT NULL,
+            amount      REAL    NOT NULL,
+            note        TEXT
         );
         """)
 
@@ -438,7 +448,7 @@ def get_paper_account_summary() -> dict:
     """
     from bot.config import get_settings
     _init_paper_trades()
-    starting = get_settings().paper_bankroll
+    starting = get_settings().paper_bankroll + get_net_deposits("paper")
 
     with _conn() as con:
         open_trades   = con.execute(
@@ -476,7 +486,7 @@ def get_real_account_summary() -> dict:
     """
     from bot.config import get_settings
     _init_paper_trades()
-    starting = get_settings().bankroll_usd
+    starting = get_settings().bankroll_usd + get_net_deposits("real")
 
     with _conn() as con:
         open_trades   = con.execute(
@@ -506,3 +516,72 @@ def get_real_account_summary() -> dict:
         "realized_pnl": realized_pnl,
         "open_count":   len(open_trades),
     }
+
+
+def add_account_transaction(
+    trade_type: str,   # 'paper' | 'real'
+    txn_type:   str,   # 'deposit' | 'withdrawal'
+    amount:     float,
+    note:       str = "",
+) -> int:
+    """
+    Logs a deposit or withdrawal against paper or real account.
+    amount is always positive — txn_type determines direction.
+    Returns the transaction id.
+    """
+    _init()
+    if amount <= 0:
+        raise ValueError("amount must be positive")
+    if trade_type not in ("paper", "real"):
+        raise ValueError("trade_type must be 'paper' or 'real'")
+    if txn_type not in ("deposit", "withdrawal"):
+        raise ValueError("type must be 'deposit' or 'withdrawal'")
+
+    with _conn() as con:
+        cur = con.execute(
+            """
+            INSERT INTO account_transactions (trade_type, type, amount, note)
+            VALUES (?, ?, ?, ?)
+            """,
+            (trade_type, txn_type, amount, note),
+        )
+    return cur.lastrowid
+
+
+def get_net_deposits(trade_type: str) -> float:
+    """
+    Returns net capital added via deposits/withdrawals for paper or real account.
+    deposit increases, withdrawal decreases.
+    Returns 0.0 if no transactions exist.
+    """
+    _init()
+    with _conn() as con:
+        deposits = con.execute(
+            "SELECT COALESCE(SUM(amount), 0.0) FROM account_transactions "
+            "WHERE trade_type = ? AND type = 'deposit'",
+            (trade_type,),
+        ).fetchone()[0]
+        withdrawals = con.execute(
+            "SELECT COALESCE(SUM(amount), 0.0) FROM account_transactions "
+            "WHERE trade_type = ? AND type = 'withdrawal'",
+            (trade_type,),
+        ).fetchone()[0]
+    return float(deposits) - float(withdrawals)
+
+
+def get_account_transactions(trade_type: str, n: int = 20) -> list[dict]:
+    """
+    Returns last n transactions for an account, most recent first.
+    """
+    _init()
+    with _conn() as con:
+        rows = con.execute(
+            """
+            SELECT * FROM account_transactions
+            WHERE trade_type = ?
+            ORDER BY id DESC
+            LIMIT ?
+            """,
+            (trade_type, n),
+        ).fetchall()
+    return [dict(r) for r in rows]
