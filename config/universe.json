@@ -186,7 +186,13 @@
     "MCD",
     "TSCO",
     "MA",
-    "NU"
+    "NU",
+    "GLXY",
+    "DE",
+    "CARR",
+    "AMKR",
+    "MCHP",
+    "XLI"
   ],
   "proxies": {
     "SPY": "IWM",

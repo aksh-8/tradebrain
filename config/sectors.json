@@ -23,7 +23,8 @@
         "RMBS": 0.92,
         "FLEX": 0.98,
         "QCOM": 0.1,
-        "NXPI": 0.2
+        "NXPI": 0.2,
+        "MCHP": 0.34
       },
       "tickers": [
         "NVDA",
@@ -43,7 +44,8 @@
         "RMBS",
         "FLEX",
         "QCOM",
-        "NXPI"
+        "NXPI",
+        "MCHP"
       ],
       "correlated_sectors": [
         "semis_equipment",
@@ -91,7 +93,8 @@
         "ASML": 0.75,
         "ENTG": 0.75,
         "ACMR": 1.06,
-        "VECO": 0.78
+        "VECO": 0.78,
+        "AMKR": 1.11
       },
       "tickers": [
         "AMAT",
@@ -100,7 +103,8 @@
         "ASML",
         "ENTG",
         "ACMR",
-        "VECO"
+        "VECO",
+        "AMKR"
       ],
       "correlated_sectors": [
         "semis_compute",
@@ -355,7 +359,9 @@
         "UNP": 0.1,
         "CAT": 0.1,
         "AAON": 0.1,
-        "WM": 0.1
+        "WM": 0.1,
+        "DE": 0.1,
+        "CARR": 0.1
       },
       "tickers": [
         "PATH",
@@ -366,7 +372,9 @@
         "UNP",
         "CAT",
         "AAON",
-        "WM"
+        "WM",
+        "DE",
+        "CARR"
       ],
       "correlated_sectors": [
         "semis_compute",
@@ -520,7 +528,8 @@
         "DIA": 0.8,
         "SMH": 2.0,
         "KWEB": 1.34,
-        "DXYZ": 1.51
+        "DXYZ": 1.51,
+        "XLI": 1.06
       },
       "tickers": [
         "SPY",
@@ -529,7 +538,8 @@
         "DIA",
         "SMH",
         "KWEB",
-        "DXYZ"
+        "DXYZ",
+        "XLI"
       ],
       "correlated_sectors": [
         "big_tech",
@@ -667,7 +677,8 @@
         "FUTU",
         "PYPL",
         "MA",
-        "NU"
+        "NU",
+        "GLXY"
       ],
       "beta_to_leader": {
         "HOOD": 0.67,
@@ -680,7 +691,8 @@
         "FUTU": 0.3,
         "PYPL": 0.22,
         "MA": 2.0,
-        "NU": 2.0
+        "NU": 2.0,
+        "GLXY": 0.81
       },
       "cross_sector_signals": [],
       "correlated_sectors": [
@@ -1321,6 +1333,15 @@
     "mcdonald's corporation": "MCD",
     "tractor supply company": "TSCO",
     "mastercard incorporated": "MA",
-    "nu holdings ltd.": "NU"
+    "nu holdings ltd.": "NU",
+    "galaxy digital": "GLXY",
+    "galaxy digital inc.": "GLXY",
+    "deere & company": "DE",
+    "carrier global corporation": "CARR",
+    "amkor technology, inc.": "AMKR",
+    "microchip technology incorporated": "MCHP",
+    "microchip technology incorporat": "MCHP",
+    "state street industrial select sector spdr etf": "XLI",
+    "state street industrial select": "XLI"
   }
 }
