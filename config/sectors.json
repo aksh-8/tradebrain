@@ -186,7 +186,8 @@
         "NKE": 0.33,
         "PEP": 0.1,
         "MCD": 2.0,
-        "TSCO": 2.0
+        "TSCO": 2.0,
+        "LULU": 0.54
       },
       "tickers": [
         "MSFT",
@@ -202,7 +203,8 @@
         "NKE",
         "PEP",
         "MCD",
-        "TSCO"
+        "TSCO",
+        "LULU"
       ],
       "correlated_sectors": [
         "semis_compute",
@@ -1342,6 +1344,7 @@
     "microchip technology incorporated": "MCHP",
     "microchip technology incorporat": "MCHP",
     "state street industrial select sector spdr etf": "XLI",
-    "state street industrial select": "XLI"
+    "state street industrial select": "XLI",
+    "lululemon athletica inc.": "LULU"
   }
 }

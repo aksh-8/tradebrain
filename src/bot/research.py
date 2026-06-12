@@ -692,19 +692,40 @@ def _gemini_available() -> bool:
 
 def _call_gemini(prompt: str) -> str:
     """
-    Calls Gemini 2.0 Flash and returns the raw text response.
-    Raises on HTTP error or empty response.
+    Calls Gemini with automatic fallback on 503.
+    Primary: gemini-2.5-pro. Fallback: gemini-2.5-flash.
     """
+    import time
     from google import genai
     from bot.config import get_settings
     s = get_settings()
-    api_key = s.gemini_api_key
-    client = genai.Client(api_key=api_key)
-    response = client.models.generate_content(
-        model    = s.gemini_model,
-        contents = prompt,
-    )
-    return response.text
+    client = genai.Client(api_key=s.gemini_api_key)
+
+    models = [
+        s.gemini_model,           # gemini-2.5-pro (primary)
+        s.gemini_model_fallback,  # gemini-2.5-flash (fallback)
+    ]
+
+    last_err = None
+    for model in models:
+        try:
+            response = client.models.generate_content(
+                model    = model,
+                contents = prompt,
+            )
+            if model != s.gemini_model:
+                print(f"  [dim]⚡ Fallback: {model}[/dim]")
+            return response.text
+        except Exception as e:
+            if "503" in str(e) or "UNAVAILABLE" in str(e):
+                last_err = e
+                if model == s.gemini_model:
+                    print(f"  [dim]Gemini Pro busy — trying fallback...[/dim]")
+                    time.sleep(2)
+                    continue
+            raise
+
+    raise last_err if last_err else Exception("Gemini call failed without specific error")
 
 def _check_thesis(
     ticker: str,

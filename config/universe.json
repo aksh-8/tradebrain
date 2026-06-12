@@ -192,7 +192,8 @@
     "CARR",
     "AMKR",
     "MCHP",
-    "XLI"
+    "XLI",
+    "LULU"
   ],
   "proxies": {
     "SPY": "IWM",

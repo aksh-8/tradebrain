@@ -41,7 +41,8 @@ class Settings:
     paper_bankroll:  float = 10000.0
     llm_provider: str = "ollama"       # "gemini" | "ollama"
     gemini_api_key: str = ""      # empty string if not set
-    gemini_model:    str   = "gemini-2.5-flash"
+    gemini_model:          str = "gemini-2.5-pro"
+    gemini_model_fallback: str = "gemini-2.5-flash"
 
 def get_settings() -> Settings:
     return Settings(
@@ -56,7 +57,8 @@ def get_settings() -> Settings:
         paper_bankroll = float(os.getenv("PAPER_BANKROLL", "10000").strip()),
         llm_provider       = os.getenv("LLM_PROVIDER", "ollama").lower(),
         gemini_api_key     = os.getenv("GEMINI_API_KEY", ""),
-        gemini_model   = os.getenv("GEMINI_MODEL", "gemini-2.5-flash"),
+        gemini_model          = os.getenv("GEMINI_MODEL", "gemini-2.5-pro"),
+        gemini_model_fallback = os.getenv("GEMINI_MODEL_FALLBACK", "gemini-2.5-flash"),
     )
 
 
