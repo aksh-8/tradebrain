@@ -24,7 +24,8 @@
         "FLEX": 0.98,
         "QCOM": 0.1,
         "NXPI": 0.2,
-        "MCHP": 0.34
+        "MCHP": 0.34,
+        "CLS": 0.94
       },
       "tickers": [
         "NVDA",
@@ -45,7 +46,8 @@
         "FLEX",
         "QCOM",
         "NXPI",
-        "MCHP"
+        "MCHP",
+        "CLS"
       ],
       "correlated_sectors": [
         "semis_equipment",
@@ -187,7 +189,8 @@
         "PEP": 0.1,
         "MCD": 2.0,
         "TSCO": 2.0,
-        "LULU": 0.54
+        "LULU": 0.54,
+        "OSS": 1.06
       },
       "tickers": [
         "MSFT",
@@ -204,7 +207,8 @@
         "PEP",
         "MCD",
         "TSCO",
-        "LULU"
+        "LULU",
+        "OSS"
       ],
       "correlated_sectors": [
         "semis_compute",
@@ -629,7 +633,8 @@
         "IMSR": 0.81,
         "NNE": 0.85,
         "UNIT": 0.17,
-        "RUN": 0.28
+        "RUN": 0.28,
+        "BE": 0.38
       },
       "tickers": [
         "SMR",
@@ -654,7 +659,8 @@
         "IMSR",
         "NNE",
         "UNIT",
-        "RUN"
+        "RUN",
+        "BE"
       ],
       "correlated_sectors": [
         "ai_infra"
@@ -1345,6 +1351,10 @@
     "microchip technology incorporat": "MCHP",
     "state street industrial select sector spdr etf": "XLI",
     "state street industrial select": "XLI",
-    "lululemon athletica inc.": "LULU"
+    "lululemon athletica inc.": "LULU",
+    "bloom energy corporation": "BE",
+    "celestica inc.": "CLS",
+    "celestica, inc.": "CLS",
+    "one stop systems, inc.": "OSS"
   }
 }

@@ -193,7 +193,10 @@
     "AMKR",
     "MCHP",
     "XLI",
-    "LULU"
+    "LULU",
+    "BE",
+    "CLS",
+    "OSS"
   ],
   "proxies": {
     "SPY": "IWM",
