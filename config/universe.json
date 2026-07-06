@@ -196,7 +196,10 @@
     "LULU",
     "BE",
     "CLS",
-    "OSS"
+    "OSS",
+    "SPCX",
+    "LITE",
+    "GNRC"
   ],
   "proxies": {
     "SPY": "IWM",

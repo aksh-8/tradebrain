@@ -190,7 +190,8 @@
         "MCD": 2.0,
         "TSCO": 2.0,
         "LULU": 0.54,
-        "OSS": 1.06
+        "OSS": 1.06,
+        "LITE": 0.1
       },
       "tickers": [
         "MSFT",
@@ -208,7 +209,8 @@
         "MCD",
         "TSCO",
         "LULU",
-        "OSS"
+        "OSS",
+        "LITE"
       ],
       "correlated_sectors": [
         "semis_compute",
@@ -403,7 +405,8 @@
         "FLY": 0.99,
         "RR": 0.55,
         "OPTX": 0.4,
-        "UMAC": 0.65
+        "UMAC": 0.65,
+        "SPCX": 1.09
       },
       "tickers": [
         "RTX",
@@ -415,7 +418,8 @@
         "FLY",
         "RR",
         "OPTX",
-        "UMAC"
+        "UMAC",
+        "SPCX"
       ],
       "correlated_sectors": [
         "robotics",
@@ -634,7 +638,8 @@
         "NNE": 0.85,
         "UNIT": 0.17,
         "RUN": 0.28,
-        "BE": 0.38
+        "BE": 0.38,
+        "GNRC": 0.16
       },
       "tickers": [
         "SMR",
@@ -660,7 +665,8 @@
         "NNE",
         "UNIT",
         "RUN",
-        "BE"
+        "BE",
+        "GNRC"
       ],
       "correlated_sectors": [
         "ai_infra"
@@ -1355,6 +1361,11 @@
     "bloom energy corporation": "BE",
     "celestica inc.": "CLS",
     "celestica, inc.": "CLS",
-    "one stop systems, inc.": "OSS"
+    "one stop systems, inc.": "OSS",
+    "space exploration technologies corp.": "SPCX",
+    "space exploration technologies": "SPCX",
+    "lumentum holdings inc.": "LITE",
+    "generac holdings inc.": "GNRC",
+    "generac holdlings inc.": "GNRC"
   }
 }
