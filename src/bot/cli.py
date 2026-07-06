@@ -2004,7 +2004,7 @@ def _cmd_portfolio(args: argparse.Namespace) -> None:
     )
 
     # real account — only show if there are real trades
-    if real_acct["open_count"] > 0 or real_acct["realized_pnl"] != 0:
+    if real_acct["starting"] > 0:
         acct_lines.append("")
         acct_lines.append(
             f"  [bold green]💵 REAL ACCOUNT[/bold green]   "
@@ -3430,6 +3430,65 @@ def _cmd_account(args: argparse.Namespace) -> None:
     ))
 
 
+def _cmd_reset(args: argparse.Namespace) -> None:
+    """
+    tradebrain reset --paper --confirm     (nukes paper trades, resets to starting)
+    tradebrain reset --real --confirm      (nukes real trades, resets to bankroll)
+    """
+    from bot.logger import reset_trades, get_paper_account_summary, get_real_account_summary
+
+    if not args.paper and not args.real:
+        console.print("[red]Must specify --paper or --real[/red]")
+        return
+    if args.paper and args.real:
+        console.print("[red]Cannot reset both accounts at once. Run separately.[/red]")
+        return
+
+    trade_type = "paper" if args.paper else "real"
+    account_label = "PAPER" if args.paper else "REAL"
+
+    # show current state
+    if args.paper:
+        summary = get_paper_account_summary()
+    else:
+        summary = get_real_account_summary()
+
+    console.print(Panel(
+        f"[bold red]⚠  RESET {account_label} ACCOUNT[/bold red]\n\n"
+        f"  Current state:\n"
+        f"    Deployed:     ${summary['deployed']:.2f} ({summary['open_count']} positions)\n"
+        f"    Realized P&L: ${summary['realized_pnl']:.2f}\n"
+        f"    Available:    ${summary['available']:.2f}\n\n"
+        f"  This will:\n"
+        f"    • DELETE all {trade_type} trades (open + closed)\n"
+        f"    • DELETE all {trade_type} deposits/withdrawals\n"
+        f"    • Reset {account_label} to starting bankroll (${summary['starting']:.2f})\n\n"
+        f"  [red]This action CANNOT be undone.[/red]",
+        title=f"[bold red]RESET {account_label} — CONFIRM[/bold red]",
+        border_style="red",
+        padding=(1, 2),
+    ))
+
+    if not args.confirm:
+        console.print(
+            "[yellow]Add --confirm flag to actually execute this reset.[/yellow]"
+        )
+        return
+
+    typed = console.input(
+        f"  Type [bold red]RESET {account_label}[/bold red] to confirm: "
+    ).strip()
+    if typed != f"RESET {account_label}":
+        console.print("  [dim]Cancelled — text didn't match.[/dim]")
+        return
+
+    count = reset_trades(trade_type)
+    console.print(
+        f"\n  [green]✅ Reset complete.[/green] Deleted {count} {trade_type} trade(s).\n"
+        f"  {account_label} account back to starting bankroll ${summary['starting']:.2f}.\n"
+    )
+
+
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
@@ -3461,6 +3520,16 @@ def main() -> None:
         type_group.add_argument("--real",  action="store_true", help="Real trade — you enter execution price")
         lt_args = lt_ap.parse_args(sys.argv[2:])
         _cmd_log_trade(lt_args)
+        return
+    
+    if len(sys.argv) > 1 and sys.argv[1] == "reset":
+        rs_ap = argparse.ArgumentParser(prog="tradebrain reset")
+        rs_ap.add_argument("--paper",   action="store_true", help="Reset paper account")
+        rs_ap.add_argument("--real",    action="store_true", help="Reset real account")
+        rs_ap.add_argument("--confirm", action="store_true",
+                           help="Required to actually execute the reset")
+        rs_args = rs_ap.parse_args(sys.argv[2:])
+        _cmd_reset(rs_args)
         return
     
     if len(sys.argv) > 1 and sys.argv[1] == "trim-trade":

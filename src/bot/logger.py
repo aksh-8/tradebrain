@@ -441,6 +441,28 @@ def delete_paper_trade(trade_id: int) -> bool:
         )
     return cur.rowcount > 0
 
+def reset_trades(trade_type: str) -> int:
+    """
+    Deletes ALL trades of the given type (paper or real).
+    Returns count of deleted trades.
+    Also clears account_transactions if that table exists.
+    """
+    _init_paper_trades()
+    with _conn() as con:
+        cur = con.execute(
+            "DELETE FROM paper_trades WHERE trade_type = ?", (trade_type,)
+        )
+        count = cur.rowcount
+
+        # also clear deposits/withdrawals for that account type
+        try:
+            con.execute(
+                "DELETE FROM account_transactions WHERE trade_type = ?", (trade_type,)
+            )
+        except Exception:
+            pass  # table may not exist yet
+    return count
+
 def get_paper_account_summary() -> dict:
     """
     Computes the full paper trading account state.
