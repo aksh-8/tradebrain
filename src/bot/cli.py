@@ -147,6 +147,60 @@ def _print_research(r: ResearchResult) -> None:
         for macro_line in macro_lines:
             lines.append(f"[bold]Macro[/bold]        {macro_line}")
 
+    # market regime + 200W SMA + sentiment
+    if r.market_regime:
+        state = r.market_regime.get("state")
+        state_colors = {
+            "RISK_ON":   "green",
+            "SELECTIVE": "yellow",
+            "CAUTION":   "orange1",
+            "RISK_OFF":  "red",
+        }
+        rc = state_colors.get(state, "dim")
+        lines.append("")
+        lines.append(
+            f"[bold]Regime[/bold]       [{rc}]{state}[/{rc}]  "
+            f"sizing {r.market_regime.get('sizing_mult', 1.0):.2f}x"
+        )
+        if r.sector_etf:
+            sector_data = r.market_regime['sectors'].get(r.sector_etf)
+            if sector_data:
+                is_rotating = r.sector_etf in r.market_regime.get('rotating_out', [])
+                rotation = "ROTATING OUT" if is_rotating else "in favor"
+                rc2 = "red" if is_rotating else "green"
+                pct5d = sector_data.get("pct_5d")
+                pct_str = f" ({pct5d:+.1f}% 5d)" if pct5d is not None else ""
+                lines.append(f"[bold]Sector[/bold]       [{rc2}]{r.sector_etf} — {rotation}[/{rc2}]{pct_str}")
+
+    if r.sma200w_state:
+        s = r.sma200w_state
+        sma_colors = {
+            "AT_ZONE":   "bold green",
+            "NEAR_ZONE": "green",
+            "ELEVATED":  "yellow",
+            "EXTENDED":  "red",
+            "BROKEN":    "red",
+            "RECLAIM":   "bold green",
+        }
+        sc = sma_colors.get(s.get("state"), "dim")
+        lines.append(
+            f"[bold]200W SMA[/bold]     [{sc}]{s.get('state')}[/{sc}]  "
+            f"${s.get('sma_200w', 0):.2f}  ({s.get('pct_from_sma', 0):+.1f}%)"
+        )
+        lines.append(f"[dim]             {s.get('note', '')}[/dim]")
+
+    if r.market_regime:
+        rg = r.market_regime
+        vix = rg.get('vix')
+        naaim = rg.get('naaim')
+        if vix is not None or naaim is not None:
+            parts = []
+            if vix is not None:
+                parts.append(f"VIX {vix}")
+            if naaim is not None:
+                parts.append(f"NAAIM {naaim}")
+            lines.append(f"[bold]Sentiment[/bold]    {'  '.join(parts)}")
+
     # news
     if r.news_summary:
         lines.append("")
@@ -3489,6 +3543,108 @@ def _cmd_reset(args: argparse.Namespace) -> None:
     )
 
 
+def _cmd_regime(args: argparse.Namespace) -> None:
+    """tradebrain regime — display full market regime state."""
+    from bot.market_regime import compute_market_regime, SECTORS
+
+    with console.status("[cyan]Computing market regime...[/cyan]", spinner="dots"):
+        regime = compute_market_regime(force=args.force)
+
+    state_colors = {
+        "RISK_ON":   "green",
+        "SELECTIVE": "yellow",
+        "CAUTION":   "orange1",
+        "RISK_OFF":  "red",
+    }
+    color = state_colors.get(regime["state"], "dim")
+
+    console.print(Panel(
+        f"[bold {color}]{regime['state']}[/bold {color}]  "
+        f"(regime score: {regime['score']}/100)\n\n"
+        f"  [bold]Sizing multiplier:[/bold] {regime['sizing_mult']:.2f}x normal\n"
+        f"  [bold]Leaders:[/bold] {', '.join(regime['leaders'])}\n"
+        f"  [bold]Laggards:[/bold] {', '.join(regime['laggards'])}"
+        + (f"\n  [red bold]Rotating OUT:[/red bold] {', '.join(regime['rotating_out'])}" if regime['rotating_out'] else "")
+        + (f"\n\n  [red]⚠ SENTIMENT EXTREME — flush risk elevated[/red]" if regime.get('sentiment_extreme') else ""),
+        title="[bold]Market Regime[/bold]",
+        border_style=color,
+        padding=(1, 2),
+    ))
+
+    from rich.table import Table
+    idx_table = Table(show_header=True, header_style="bold", box=None, padding=(0, 2))
+    idx_table.add_column("Ticker", style="bold")
+    idx_table.add_column("Price",  justify="right")
+    idx_table.add_column("5D %",   justify="right")
+    idx_table.add_column("8 EMA")
+    idx_table.add_column("21 EMA")
+    idx_table.add_column("50 EMA")
+
+    for ticker, data in regime["indexes"].items():
+        pct5d = data.get("pct_5d")
+        pct_color = "green" if pct5d and pct5d >= 0 else "red" if pct5d else "dim"
+        idx_table.add_row(
+            ticker,
+            f"${data['price']:.2f}",
+            f"[{pct_color}]{pct5d:+.1f}%[/{pct_color}]" if pct5d is not None else "-",
+            "[green]✓[/green]" if data['above_8']  else "[red]✗[/red]",
+            "[green]✓[/green]" if data['above_21'] else "[red]✗[/red]",
+            "[green]✓[/green]" if data['above_50'] else "[red]✗[/red]",
+        )
+    console.print(Panel(idx_table, title="[bold]Indexes[/bold]", border_style="dim", padding=(1, 2)))
+
+    sec_table = Table(show_header=True, header_style="bold", box=None, padding=(0, 2))
+    sec_table.add_column("ETF",  style="bold")
+    sec_table.add_column("Sector", style="dim")
+    sec_table.add_column("Price", justify="right")
+    sec_table.add_column("5D %",  justify="right")
+    sec_table.add_column("Status")
+
+    sorted_sectors = sorted(
+        regime["sectors"].items(),
+        key=lambda x: x[1].get("pct_5d") or 0,
+        reverse=True,
+    )
+    for etf, data in sorted_sectors:
+        pct5d = data.get("pct_5d") or 0
+        pct_color = "green" if pct5d >= 0 else "red"
+        if etf in regime["leaders"]:
+            status = "[green]LEADER[/green]"
+        elif etf in regime["rotating_out"]:
+            status = "[red]ROTATING OUT[/red]"
+        elif etf in regime["laggards"]:
+            status = "[yellow]LAGGARD[/yellow]"
+        else:
+            status = "[dim]neutral[/dim]"
+        sec_table.add_row(
+            etf,
+            SECTORS.get(etf, ""),
+            f"${data['price']:.2f}",
+            f"[{pct_color}]{pct5d:+.1f}%[/{pct_color}]",
+            status,
+        )
+    console.print(Panel(sec_table, title="[bold]Sectors[/bold]", border_style="dim", padding=(1, 2)))
+
+    sentiment_lines = []
+    if regime.get("vix") is not None:
+        vix = regime["vix"]
+        vc = "red" if vix > 25 else "green" if vix < 15 else "yellow"
+        vnote = "extreme fear" if vix > 25 else "complacency" if vix < 15 else "normal"
+        sentiment_lines.append(f"  [bold]VIX[/bold]     [{vc}]{vix}[/{vc}]  ({vnote})")
+    if regime.get("naaim") is not None:
+        naaim = regime["naaim"]
+        nc = "red" if naaim > 90 else "green" if naaim < 40 else "yellow"
+        nnote = "extreme greed" if naaim > 90 else "bearish" if naaim < 40 else "normal"
+        sentiment_lines.append(f"  [bold]NAAIM[/bold]   [{nc}]{naaim}[/{nc}]  ({nnote})")
+    if sentiment_lines:
+        console.print(Panel(
+            "\n".join(sentiment_lines),
+            title="[bold]Sentiment[/bold]",
+            border_style="dim",
+            padding=(1, 2),
+        ))
+
+
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
@@ -3685,6 +3841,13 @@ def main() -> None:
             os.environ["LLM_PROVIDER"] = rev_args.llm
         _cmd_review(rev_args)
         return
+    
+    if len(sys.argv) > 1 and sys.argv[1] == "regime":
+        rg_ap = argparse.ArgumentParser(prog="tradebrain regime")
+        rg_ap.add_argument("--force", action="store_true", help="Force refetch, ignore cache")
+        rg_args = rg_ap.parse_args(sys.argv[2:])
+        _cmd_regime(rg_args)
+        return
 
     if len(sys.argv) > 1 and sys.argv[1] == "account":
         acct_ap = argparse.ArgumentParser(prog="tradebrain account")
@@ -3722,6 +3885,7 @@ def main() -> None:
     ap.add_argument("--deep", action="store_true", help="Fetch full articles for deeper LLM research (slower)")
     ap.add_argument("--bankroll", type=float, help="Override bankroll for Kelly sizing (default: from .env BANKROLL_USD)")
     ap.add_argument("--llm", choices=["gemini", "ollama"], default=None, help="Override LLM provider for this run: gemini or ollama (default: LLM_PROVIDER from .env)")
+    ap.add_argument("--force", action="store_true", help="Bypass regime hard blocks and sizing adjustments")
     args = ap.parse_args()
 
     # LLM provider override — takes effect before any research calls
@@ -3799,12 +3963,86 @@ def main() -> None:
             else:
                 _print_budget_warning(research.ticker, args.budget, reason)
     else:
+        # pre-compute regime + 200W to adjust budget BEFORE run()
+        if not args.force:
+            try:
+                from bot.market_regime import (
+                    compute_market_regime,
+                    compute_sma200w_state,
+                    get_ticker_sector_etf,
+                    check_hard_blocks,
+                )
+                from bot.chain_yf import get_spot, get_price_history
+                from bot.correlations import get_sector
+
+                pre_ticker = intake.tickers[0]
+                pre_regime = compute_market_regime()
+
+                try:
+                    pre_price = get_spot(pre_ticker)
+                    pre_history = get_price_history(pre_ticker, period="1y")
+                    pre_sma200w = compute_sma200w_state(pre_history, pre_price)
+                except Exception:
+                    pre_sma200w = None
+                    pre_price = 0
+
+                # sector detection
+                pre_sector_etf = None
+                try:
+                    sector_info = get_sector(pre_ticker)
+                    if sector_info:
+                        pre_sector_etf = get_ticker_sector_etf(pre_ticker, sector_info.slug)
+                except Exception:
+                    pre_sector_etf = None
+
+                # hard block pre-check
+                pre_direction = intake.direction if intake.direction != "unknown" else "bullish"
+                pre_block = check_hard_blocks(pre_regime, pre_sma200w, pre_sector_etf, pre_direction)
+
+                if pre_block:
+                    console.print(Panel(
+                        f"[bold red]🔴 TRADE BLOCKED[/bold red]\n\n"
+                        f"  {pre_block}\n\n"
+                        f"  [dim]To override: add --force flag[/dim]",
+                        title="[bold red]HARD BLOCK[/bold red]",
+                        border_style="red",
+                        padding=(1, 2),
+                    ))
+                    return
+
+                # apply sizing multiplier
+                regime_mult = pre_regime.get('sizing_mult', 1.0)
+                sma_mult = pre_sma200w['sizing_mult'] if pre_sma200w else 1.0
+                combined = regime_mult * sma_mult
+                if combined != 1.0:
+                    original_budget = intake.budget
+                    adjusted_budget = max(50, int(original_budget * combined))
+                    if adjusted_budget != original_budget:
+                        console.print(
+                            f"\n  [yellow]⚠ Budget adjusted: ${original_budget:.0f} → ${adjusted_budget} "
+                            f"(regime {regime_mult:.2f}x × 200W {sma_mult:.2f}x = {combined:.2f}x)[/yellow]\n"
+                        )
+                        from bot.models import Intake
+                        intake = Intake(
+                            raw_text        = intake.raw_text,
+                            tickers         = intake.tickers,
+                            context_tickers = intake.context_tickers,
+                            direction       = intake.direction,
+                            thesis          = intake.thesis,
+                            timeframe       = intake.timeframe,
+                            budget          = float(adjusted_budget),
+                        )
+                        args.budget = adjusted_budget
+            except Exception as e:
+                console.print(f"[dim]Regime pre-check skipped: {e}[/dim]")
+
         with console.status(
             "[cyan]Researching (deep mode)...[/cyan]" if args.deep else "[cyan]Researching...[/cyan]",
             spinner="dots"
         ):
             research, picks, reason, direction_note, earnings_dte_note, pre_earnings_picks = run(intake, deep=args.deep)
         _print_research(research)
+        
         if direction_note:
             console.print(f"\n  {direction_note}\n")
         if earnings_dte_note:

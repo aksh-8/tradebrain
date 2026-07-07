@@ -71,6 +71,11 @@ class ResearchResult:
     extension_signal:         Optional[str] = None
     macro_context:            Optional[str] = None
     unr_signal:               Optional[str] = None
+    market_regime:            Optional[dict]  = None
+    sma200w_state:            Optional[dict]  = None
+    sector_etf:               Optional[str]   = None
+    hard_block:               Optional[str]   = None
+    regime_sizing_mult:       Optional[float] = None
 
 @dataclass(frozen=True)
 class Pick:

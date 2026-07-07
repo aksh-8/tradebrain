@@ -11,6 +11,13 @@ from bot.chain_yf import get_spot, get_price_history, get_chain, get_expirations
 from bot.models import ResearchResult, Direction
 from bot.correlations import get_correlation_context, format_context_for_llm
 from bot.config import get_settings as _get_settings
+from bot.market_regime import (
+    compute_market_regime,
+    compute_sma200w_state,
+    get_ticker_sector_etf,
+    check_hard_blocks,
+    format_regime_for_llm,
+)
 
 try:
     from ddgs import DDGS
@@ -752,6 +759,8 @@ def _check_thesis(
     iv_skew:                Optional[str] = None,
     term_structure:         Optional[str] = None,
     macro_context:          Optional[str] = None,
+    regime_context:         Optional[str] = None,
+    hard_block:             Optional[str] = None,
 ) -> tuple[Optional[str], Optional[str], Direction, str]:
 
     use_gemini = _gemini_available()
@@ -820,6 +829,9 @@ def _check_thesis(
 - IV skew:        {iv_skew or 'not available'}
 - Term structure: {term_structure or 'not available'}
 - Macro calendar: {macro_context or 'no major events in next 21 days'}
+
+{regime_context or 'Market regime: unavailable'}
+{f'HARD BLOCK: {hard_block}' if hard_block else ''}
 - News headlines: {news_summary or 'none'}
 - News detail:    {article_context or 'headlines only — no full articles available'}
 {context_note}
@@ -1015,6 +1027,26 @@ def research_ticker(
     macro_events  = get_upcoming_events(days_ahead=21)
     macro_context = format_macro_for_llm(macro_events)
 
+    # market regime + 200W SMA + sector detection
+    regime  = compute_market_regime()
+    sma200w = compute_sma200w_state(history, price)
+
+    # detect sector ETF for rotation warnings
+    sector_etf = None
+    try:
+        from bot.correlations import get_sector
+        sector_info = get_sector(ticker)
+        if sector_info:
+            sector_etf = get_ticker_sector_etf(ticker, sector_info.slug)
+    except Exception:
+        sector_etf = None
+
+    regime_context = format_regime_for_llm(regime, sma200w, sector_etf)
+
+    # determine direction for hard block check
+    _block_direction = "bullish"  # default assumption; refined by LLM later
+    hard_block = check_hard_blocks(regime, sma200w, sector_etf, _block_direction)
+
     # LLM thesis check
     verdict, reasoning, direction, confidence = _check_thesis(
         ticker             = ticker,
@@ -1041,6 +1073,8 @@ def research_ticker(
         iv_skew                = iv_skew,
         term_structure         = term_structure,
         macro_context          = macro_context,
+        regime_context         = regime_context,
+        hard_block             = hard_block,
     )
 
     skip_reason: Optional[str] = None
@@ -1078,4 +1112,9 @@ def research_ticker(
         extension_signal       = technicals.get("extension_signal"),
         macro_context          = macro_context,
         unr_signal             = technicals.get("unr_signal"),
+        market_regime          = regime,
+        sma200w_state          = sma200w,
+        sector_etf             = sector_etf,
+        hard_block             = hard_block,
+        regime_sizing_mult     = regime.get('sizing_mult', 1.0) * (sma200w['sizing_mult'] if sma200w else 1.0),
     )
