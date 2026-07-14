@@ -12,7 +12,6 @@
         "MRVL": 0.8,
         "TSM": 0.7,
         "ARM": 0.8,
-        "SMCI": 0.9,
         "INTC": 0.4,
         "CBRS": 0.5,
         "NVTS": 1.1,
@@ -25,7 +24,8 @@
         "QCOM": 0.1,
         "NXPI": 0.2,
         "MCHP": 0.34,
-        "CLS": 0.94
+        "CLS": 0.94,
+        "AVT": 0.4
       },
       "tickers": [
         "NVDA",
@@ -34,7 +34,6 @@
         "MRVL",
         "TSM",
         "ARM",
-        "SMCI",
         "INTC",
         "ALAB",
         "CRDO",
@@ -47,7 +46,8 @@
         "QCOM",
         "NXPI",
         "MCHP",
-        "CLS"
+        "CLS",
+        "AVT"
       ],
       "correlated_sectors": [
         "semis_equipment",
@@ -139,7 +139,12 @@
         "VIAV": 0.4,
         "LUMN": 0.4,
         "CRSR": 0.55,
-        "HPE": 0.5
+        "HPE": 0.5,
+        "SMCI": 1.2,
+        "OSS": 0.6,
+        "LITE": 0.8,
+        "AAON": 0.8,
+        "CARR": 0.6
       },
       "tickers": [
         "NBIS",
@@ -161,7 +166,12 @@
         "VIAV",
         "LUMN",
         "CRSR",
-        "HPE"
+        "HPE",
+        "SMCI",
+        "OSS",
+        "LITE",
+        "AAON",
+        "CARR"
       ],
       "correlated_sectors": [
         "semis_compute",
@@ -179,38 +189,14 @@
         "GOOGL": 0.8,
         "AMZN": 0.75,
         "AAPL": 0.5,
-        "ORCL": 1.31,
-        "AVT": 0.1,
-        "SMCI": 1.23,
-        "STX": 0.16,
-        "WDC": 0.1,
-        "KHC": 0.1,
-        "NKE": 0.33,
-        "PEP": 0.1,
-        "MCD": 2.0,
-        "TSCO": 2.0,
-        "LULU": 0.54,
-        "OSS": 1.06,
-        "LITE": 0.1
+        "ORCL": 1.31
       },
       "tickers": [
         "MSFT",
         "GOOGL",
         "AMZN",
         "AAPL",
-        "ORCL",
-        "AVT",
-        "SMCI",
-        "STX",
-        "WDC",
-        "KHC",
-        "NKE",
-        "PEP",
-        "MCD",
-        "TSCO",
-        "LULU",
-        "OSS",
-        "LITE"
+        "ORCL"
       ],
       "correlated_sectors": [
         "semis_compute",
@@ -228,14 +214,29 @@
         "COST": 0.75,
         "TGT": 0.8,
         "HD": 0.7,
-        "LOW": 0.65
+        "LOW": 0.65,
+        "WMT": 1.0,
+        "KHC": 0.3,
+        "NKE": 0.6,
+        "PEP": 0.3,
+        "MCD": 0.4,
+        "TSCO": 0.5,
+        "LULU": 0.7,
+        "PENG": 0.4
       },
       "tickers": [
         "WMT",
         "COST",
         "TGT",
         "HD",
-        "LOW"
+        "LOW",
+        "KHC",
+        "NKE",
+        "PEP",
+        "MCD",
+        "TSCO",
+        "LULU",
+        "PENG"
       ],
       "correlated_sectors": [
         "etfs",
@@ -306,8 +307,7 @@
         "SNOW": 0.7,
         "DDOG": 0.75,
         "LAES": 0.6,
-        "AKAM": 0.5,
-        "DOCN": 0.56
+        "AKAM": 0.5
       },
       "tickers": [
         "CRWD",
@@ -319,8 +319,7 @@
         "SNOW",
         "DDOG",
         "LAES",
-        "AKAM",
-        "DOCN"
+        "AKAM"
       ],
       "correlated_sectors": [
         "big_tech",
@@ -364,12 +363,9 @@
         "SERV": 0.65,
         "AMBA": 0.6,
         "AEVA": 0.55,
-        "UNP": 0.1,
         "CAT": 0.1,
-        "AAON": 0.1,
         "WM": 0.1,
-        "DE": 0.1,
-        "CARR": 0.1
+        "DE": 0.1
       },
       "tickers": [
         "PATH",
@@ -377,12 +373,9 @@
         "SERV",
         "AMBA",
         "AEVA",
-        "UNP",
         "CAT",
-        "AAON",
         "WM",
-        "DE",
-        "CARR"
+        "DE"
       ],
       "correlated_sectors": [
         "semis_compute",
@@ -406,7 +399,8 @@
         "RR": 0.55,
         "OPTX": 0.4,
         "UMAC": 0.65,
-        "SPCX": 1.09
+        "SPCX": 1.09,
+        "UNP": 0.4
       },
       "tickers": [
         "RTX",
@@ -419,7 +413,8 @@
         "RR",
         "OPTX",
         "UMAC",
-        "SPCX"
+        "SPCX",
+        "UNP"
       ],
       "correlated_sectors": [
         "robotics",
@@ -639,7 +634,8 @@
         "UNIT": 0.17,
         "RUN": 0.28,
         "BE": 0.38,
-        "GNRC": 0.16
+        "GNRC": 0.16,
+        "FCX": 0.32
       },
       "tickers": [
         "SMR",
@@ -666,7 +662,8 @@
         "UNIT",
         "RUN",
         "BE",
-        "GNRC"
+        "GNRC",
+        "FCX"
       ],
       "correlated_sectors": [
         "ai_infra"
@@ -685,7 +682,6 @@
         "SOFI",
         "AFRM",
         "C",
-        "GS",
         "MS",
         "VIRT",
         "FUTU",
@@ -699,7 +695,6 @@
         "SOFI": 0.46,
         "AFRM": 1.2,
         "C": 0.12,
-        "GS": 0.19,
         "MS": 0.17,
         "VIRT": 0.1,
         "FUTU": 0.3,
@@ -723,7 +718,7 @@
       "beta_to_leader": {
         "RIVN": 0.38,
         "F": 0.49,
-        "GM": 0.35,
+        "GM": 0.22,
         "BWA": 0.49
       },
       "tickers": [
@@ -1366,6 +1361,11 @@
     "space exploration technologies": "SPCX",
     "lumentum holdings inc.": "LITE",
     "generac holdings inc.": "GNRC",
-    "generac holdlings inc.": "GNRC"
+    "generac holdlings inc.": "GNRC",
+    "walmart inc.": "WMT",
+    "penguin solutions, inc.": "PENG",
+    "general motors company": "GM",
+    "freeport-mcmoran inc.": "FCX",
+    "freeport-mcmoran, inc.": "FCX"
   }
 }

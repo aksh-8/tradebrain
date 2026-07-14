@@ -199,7 +199,11 @@
     "OSS",
     "SPCX",
     "LITE",
-    "GNRC"
+    "GNRC",
+    "WMT",
+    "PENG",
+    "GM",
+    "FCX"
   ],
   "proxies": {
     "SPY": "IWM",

@@ -18,8 +18,10 @@ _SECTORS_PATH  = Path(__file__).parent.parent.parent / "config" / "sectors.json"
 
 _SECTOR_MAP: dict[str, str] = {
     # yfinance sector string → our slug
+    # NOTE: sector map is only used as LAST RESORT after industry map + LLM fail.
+    # Both consumer categories are intentionally excluded — they must go through LLM.
     "technology":               "big_tech",
-    "communication services":   "social_media",   # SNAP, PINS, RDDT — was wrongly big_tech
+    "communication services":   "social_media",
     "semiconductors":           "semis_compute",
     "semiconductor equipment":  "semis_equipment",
     "software":                 "ai_software",
@@ -27,16 +29,16 @@ _SECTOR_MAP: dict[str, str] = {
     "cloud":                    "cloud_cyber",
     "financial services":       "fintech",
     "financial":                "fintech",
-    "energy":                   "energy_trad",     # OXY, XOM, CVX — split from nuclear/SMR
+    "energy":                   "energy_trad",
     "utilities":                "energy_infra",
     "healthcare":               "healthtech",
     "biotechnology":            "healthtech",
-    "consumer cyclical":        "ev_auto",         # RIVN, NIO, GM, F — was wrongly big_tech
-    "consumer defensive":       "big_tech",
-    "industrials":              "robotics",
+    "industrials":              "defense_aero",   # industrial default — LLM should override
     "basic materials":          "energy_infra",
     "defense":                  "defense_aero",
     "aerospace":                "defense_aero",
+    # DELETED: consumer cyclical → ev_auto (too broad, breaks retail/travel/etc)
+    # DELETED: consumer defensive → big_tech (INSANE mapping, that's how WMT broke)
 }
 
 _INDUSTRY_MAP: dict[str, str] = {
@@ -63,9 +65,23 @@ _INDUSTRY_MAP: dict[str, str] = {
     "advertising agencies":                "ai_software",    # TTD, ZETA — ad tech platforms
 
 
-    # China ADRs tend to be e-commerce/consumer — NEW
-    "internet retail":                     "china_adr",
-    "specialty retail":                    "big_tech",
+    # E-commerce / retail
+    "internet retail":                     "retail",     # AMZN, EBAY — plain retail default; LLM overrides for BABA/PDD → china_adr
+    "specialty retail":                    "retail",     # HD, LOW, BBY, ULTA
+    "discount stores":                     "retail",     # WMT, TGT, COST, DG, DLTR
+    "grocery stores":                      "retail",     # KR, ACI
+    "department stores":                   "retail",     # M, KSS, JWN
+    "apparel retail":                      "retail",     # LULU, ANF, GPS
+    "home improvement retail":             "retail",     # HD, LOW
+    "beverages — non-alcoholic":           "retail",     # KO, PEP
+    "packaged foods":                      "retail",     # GIS, K, KHC
+    "household & personal products":       "retail",     # PG, CL, CHD
+    "confectioners":                       "retail",     # HSY, MDLZ
+    "tobacco":                             "retail",     # MO, PM
+    "beverages — alcoholic":               "retail",     # STZ, DEO
+    "restaurants":                         "retail",     # MCD, CMG, SBUX
+    "leisure":                             "retail",     # NKE, LULU also
+    "footwear & accessories":              "retail",     # NKE, DECK, CROX
 
     # Hardware / compute
     "computer hardware":                   "big_tech",
@@ -134,8 +150,10 @@ _INDUSTRY_MAP: dict[str, str] = {
     "residential construction": "real_estate",
 }
 
-# default fallback — big_tech is safer than ai_software for true unknowns
-_DEFAULT_SLUG = "big_tech"
+# default fallback — only used when EVERYTHING else fails.
+# retail is safer than big_tech because it doesn't pollute the AI supercycle sector
+# with unrelated names that would break beta calculations and sector rotation signals.
+_DEFAULT_SLUG = "retail"
 
 
 def _classify_sector(info: dict) -> str:
@@ -170,11 +188,11 @@ def _classify_sector(info: dict) -> str:
     if llm_slug:
         return llm_slug
 
-    # consumer cyclical fallback if LLM unavailable
+    # consumer fallback if LLM unavailable (both cyclical and defensive)
     if "consumer" in sector:
-        return "big_tech"
+        return "retail"
 
-    return "big_tech"
+    return _DEFAULT_SLUG
 
 def _classify_sector_with_llm(
     company_name: str,
@@ -192,10 +210,17 @@ def _classify_sector_with_llm(
             return None
 
         valid_slugs = [
-            "semis_compute", "semis_memory", "semis_equipment", "ai_infra",
-            "big_tech", "ai_software", "cloud_cyber", "cyber_nextgen",
-            "robotics", "healthtech", "crypto_miners", "quantum",
-            "etfs", "energy_infra", "ai_data", "fintech",
+            "semis_compute", "semis_memory", "semis_equipment", "ai_infra", "ai_data",
+            "big_tech", "ai_software", "cloud_cyber",
+            "social_media", "entertainment",
+            "robotics", "ev_auto", "space", "defense_aero",
+            "healthtech",
+            "crypto_miners", "quantum",
+            "etfs",
+            "energy_infra", "energy_trad",
+            "fintech", "banks",
+            "china_adr",
+            "retail", "travel", "real_estate",
         ]
 
         prompt = (
@@ -206,20 +231,36 @@ def _classify_sector_with_llm(
             f"yfinance industry: {industry}\n"
             f"Description: {description}\n\n"
             f"Sector slugs:\n"
-            f"- semis_compute: semiconductor chips (NVIDIA, AMD, Intel, Qualcomm)\n"
-            f"- semis_memory: memory chips (Micron, WD, SNDK)\n"
-            f"- semis_equipment: chip equipment (ASML, AMAT, LRCX)\n"
-            f"- big_tech: large tech, consumer internet, China ADRs, social media "
-            f"(MSFT, GOOGL, META, BABA, PDD, JD, SNAP, PINS)\n"
-            f"- ai_software: AI/enterprise software (Palantir, Salesforce, ServiceNow)\n"
-            f"- cloud_cyber: cloud and cybersecurity (CrowdStrike, Cloudflare, Palo Alto)\n"
-            f"- robotics: EVs, autonomous vehicles, automation, industrial (Tesla, Rivian, Lucid)\n"
-            f"- healthtech: healthcare, biotech, pharma (Hims, Moderna, Pfizer)\n"
-            f"- crypto_miners: bitcoin/crypto mining and blockchain (MARA, CleanSpark, Riot)\n"
-            f"- quantum: quantum computing (IonQ, Rigetti, D-Wave, QBTS)\n"
-            f"- energy_infra: energy, nuclear, solar, utilities, materials (SMR, OKLO)\n"
-            f"- fintech: payments, banking, financial tech (Coinbase, SQ, Stripe)\n"
-            f"- etfs: ETFs and index funds\n"
+            f"- semis_compute: semiconductor chips (NVDA, AMD, INTC, QCOM, AVGO, ARM)\n"
+            f"- semis_memory: memory chips (MU, SNDK, WDC, STX)\n"
+            f"- semis_equipment: chip fab equipment (ASML, AMAT, LRCX, KLAC)\n"
+            f"- ai_infra: AI infrastructure and data centers (NBIS, CRWV, IREN, VRT, ANET)\n"
+            f"- ai_data: AI training data services (INOD, DDOG)\n"
+            f"- big_tech: mega-cap platform tech only (MSFT, GOOGL, AAPL, AMZN, NFLX, ORCL)\n"
+            f"- ai_software: AI/enterprise SaaS (PLTR, NOW, CRM, SNOW)\n"
+            f"- cloud_cyber: cloud and cybersecurity platforms (CRWD, NET, PANW, ZS)\n"
+            f"- social_media: social platforms and consumer internet (META, SNAP, PINS, RDDT)\n"
+            f"- entertainment: media and streaming (DIS, WBD, PARA)\n"
+            f"- robotics: industrial automation and robotics ONLY (ABB, ROK, ISRG)\n"
+            f"- ev_auto: EVs, autos, auto parts (TSLA, RIVN, LCID, GM, F, NIO)\n"
+            f"- space: space/satellite/launch (RKLB, LUNR, ASTS, PL)\n"
+            f"- defense_aero: defense and aerospace (LMT, RTX, GD, BA, KTOS)\n"
+            f"- healthtech: healthcare, biotech, pharma (LLY, JNJ, PFE, HIMS)\n"
+            f"- crypto_miners: bitcoin/crypto mining (MARA, RIOT, CLSK, HUT)\n"
+            f"- quantum: quantum computing (IONQ, RGTI, QBTS, QUBT)\n"
+            f"- energy_infra: nuclear/solar/utilities/grid (SMR, OKLO, FSLR, NEE, VST)\n"
+            f"- energy_trad: oil and gas (XOM, CVX, OXY, COP)\n"
+            f"- fintech: payments and fintech (COIN, HOOD, SOFI, SQ, PYPL, AFRM)\n"
+            f"- banks: traditional banks (JPM, WFC, C, MS, GS, BAC)\n"
+            f"- china_adr: China e-commerce and tech ADRs (BABA, PDD, JD, BIDU)\n"
+            f"- retail: retail, staples, restaurants, grocery, consumer goods "
+            f"(WMT, TGT, COST, HD, LOW, MCD, SBUX, KO, PEP, PG, NKE)\n"
+            f"- travel: airlines, cruises, hotels, casinos (UAL, DAL, CCL, MAR, MGM)\n"
+            f"- real_estate: real estate, REITs, home builders (Z, OPEN, RDFN, DHI)\n"
+            f"- etfs: ETFs, index funds, gold (SPY, QQQ, GLD, XLK)\n\n"
+            f"CRITICAL: 'big_tech' is ONLY for mega-cap platform companies like MSFT/GOOGL/AAPL/AMZN. "
+            f"Do NOT classify retailers, consumer goods, industrials, healthcare, or unrelated companies as big_tech. "
+            f"When in doubt about a consumer/retail company, use 'retail'."
         )
 
         result = _call_gemini(prompt).strip().lower()
