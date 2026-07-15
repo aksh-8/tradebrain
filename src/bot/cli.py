@@ -1309,23 +1309,50 @@ def _fetch_live_contract_price(
 ) -> tuple[Optional[float], bool]:
     """
     Fetches the current mid price for a contract from yfinance.
+    Falls back to the nearest available expiry if the exact one isn't in
+    yfinance's catalog (e.g. some Monday weeklies that exist on Robinhood
+    but aren't surfaced by Yahoo).
     Returns (mid_price_dollars, used_last_price).
-    used_last_price=True means market is closed — price may be stale.
     """
-    from bot.chain_yf import get_chain, ChainError
+    from bot.chain_yf import get_chain, get_expirations
     from bot.select import _effective_mid
+    from datetime import datetime
+
+    def _try_chain(exp: str) -> tuple[Optional[float], bool]:
+        try:
+            chain = get_chain(ticker, exp)
+            matching = [c for c in chain if c.call_put == side]
+            if not matching:
+                return None, False
+            contract = min(matching, key=lambda c: abs(c.strike - strike))
+            m, used_last = _effective_mid(contract.bid, contract.ask, contract.last, True)
+            if m is None:
+                return None, False
+            return m * 100, used_last
+        except Exception:
+            return None, False
+
+    # Try exact expiry first
+    price, used_last = _try_chain(expiry)
+    if price is not None:
+        return price, used_last
+
+    # Fallback — find nearest available expiry
     try:
-        chain = get_chain(ticker, expiry)
-        matching = [c for c in chain if c.call_put == side]
-        if not matching:
+        available = get_expirations(ticker)
+        if not available:
             return None, False
-        contract = min(matching, key=lambda c: abs(c.strike - strike))
-        m, used_last = _effective_mid(contract.bid, contract.ask, contract.last, True)
-        if m is None:
-            return None, False
-        return m * 100, used_last  # return dollars per contract
-    except (ChainError, Exception):
-        return None, False
+        target = datetime.strptime(expiry, "%Y-%m-%d")
+        nearest = min(
+            available,
+            key=lambda e: abs((datetime.strptime(e, "%Y-%m-%d") - target).days),
+        )
+        if nearest != expiry:
+            return _try_chain(nearest)
+    except Exception:
+        pass
+
+    return None, False
 
 
 def _cmd_log_trade(args: argparse.Namespace) -> None:
