@@ -151,10 +151,10 @@ def _print_research(r: ResearchResult) -> None:
     if r.market_regime:
         state = r.market_regime.get("state")
         state_colors = {
-            "RISK_ON":   "green",
+            "DEPLOY":    "green",
             "SELECTIVE": "yellow",
             "CAUTION":   "orange1",
-            "RISK_OFF":  "red",
+            "HOLD_CASH": "red",
         }
         rc = state_colors.get(state, "dim")
         lines.append("")
@@ -3578,10 +3578,10 @@ def _cmd_regime(args: argparse.Namespace) -> None:
         regime = compute_market_regime(force=args.force)
 
     state_colors = {
-        "RISK_ON":   "green",
+        "DEPLOY":    "green",
         "SELECTIVE": "yellow",
         "CAUTION":   "orange1",
-        "RISK_OFF":  "red",
+        "HOLD_CASH": "red",
     }
     color = state_colors.get(regime["state"], "dim")
 

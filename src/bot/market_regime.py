@@ -67,10 +67,10 @@ SECTOR_MAP = {
 
 # Sizing multipliers by regime state
 SIZING_MULTIPLIERS = {
-    "RISK_ON":    1.00,
+    "DEPLOY":     1.00,
     "SELECTIVE":  0.75,
     "CAUTION":    0.50,
-    "RISK_OFF":   0.10,
+    "HOLD_CASH":  0.10,
 }
 
 # 200W SMA sizing multipliers
@@ -263,16 +263,16 @@ def compute_market_regime(force: bool = False) -> dict:
             sentiment_extreme = True
 
     if pct_score >= 0.85 and not sentiment_extreme:
-        state = "RISK_ON"
+        state = "DEPLOY"
     elif pct_score >= 0.60:
         state = "SELECTIVE"
     elif pct_score >= 0.35:
         state = "CAUTION"
     else:
-        state = "RISK_OFF"
+        state = "HOLD_CASH"
 
     # Sentiment can downgrade
-    if sentiment_extreme and state == "RISK_ON":
+    if sentiment_extreme and state == "DEPLOY":
         state = "SELECTIVE"
 
     # Sector rankings by 5-day performance
@@ -413,16 +413,16 @@ def check_hard_blocks(
 ) -> Optional[str]:
     """
     Returns block reason string if trade should be blocked, else None.
-    Only blocks bullish trades — bearish trades allowed in RISK_OFF.
+    Only blocks bullish trades — bearish trades allowed in HOLD_CASH.
     """
     if direction != "bullish":
         return None
 
-    # Block 1: sector rotating out AND regime risk off
-    if regime["state"] == "RISK_OFF" and ticker_sector_etf:
+    # Block 1: sector rotating out AND regime says hold cash
+    if regime["state"] == "HOLD_CASH" and ticker_sector_etf:
         if ticker_sector_etf in regime["rotating_out"]:
             return (
-                f"HARD BLOCK: {ticker_sector_etf} is rotating out AND market regime is RISK OFF. "
+                f"HARD BLOCK: {ticker_sector_etf} is rotating out AND market says HOLD CASH. "
                 f"Bullish premium blocked. Override with --force."
             )
 
