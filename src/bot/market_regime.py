@@ -71,7 +71,12 @@ SIZING_MULTIPLIERS = {
     "SELECTIVE":  0.75,
     "CAUTION":    0.50,
     "HOLD_CASH":  0.10,
+    "UNKNOWN":    0.10,   # core index failed to fetch — defensive, never size up
 }
+
+# A regime score can't be trusted without these. Missing SMH/DRAM only
+# degrades the score; missing SPY or QQQ breaks it.
+CORE_INDEXES = ("SPY", "QQQ")
 
 # 200W SMA sizing multipliers
 SMA200W_MULTIPLIERS = {
@@ -243,6 +248,33 @@ def compute_market_regime(force: bool = False) -> dict:
     vix   = _get_vix()
     naaim = _get_naaim()
 
+    # Data-integrity guard: a failed index fetch shrinks both numerator and
+    # denominator, so a dropped index silently shifts the score. If QQQ (2x
+    # weight, currently the biggest drag) fails, the score JUMPS. Guard first.
+    missing_indexes = [t for t in INDEXES if t not in indexes]
+    core_missing    = [t for t in CORE_INDEXES if t not in indexes]
+
+    if core_missing:
+        result = {
+            "state":             "UNKNOWN",
+            "score":             None,
+            "indexes":           indexes,
+            "sectors":           sectors,
+            "vix":               vix,
+            "naaim":             naaim,
+            "sentiment_extreme": False,
+            "leaders":           [],
+            "laggards":          [],
+            "rotating_out":      [],
+            "sizing_mult":       SIZING_MULTIPLIERS["UNKNOWN"],
+            "data_quality":      "core_missing",
+            "missing_indexes":   missing_indexes,
+            "computed_at":       datetime.now().isoformat(),
+        }
+        _regime_cache["data"] = result
+        _regime_cache["ts"]   = time.time()
+        return result
+
     # Compute weighted score for indexes
     score = 0
     max_score = 0
@@ -256,10 +288,16 @@ def compute_market_regime(force: bool = False) -> dict:
     pct_score = score / max_score if max_score > 0 else 0
 
     # Determine regime state
-    # First check sentiment extreme overrides
+    # First check sentiment extreme overrides.
+    # Strong signal needs both NAAIM and VIX. But NAAIM is a flaky scrape and
+    # is often missing — when it is, a sub-15 VIX alone still flags complacency
+    # so the protection isn't silently disabled (audit fix #3).
     sentiment_extreme = False
     if naaim is not None and vix is not None:
         if naaim > 95 and vix < 15:
+            sentiment_extreme = True
+    elif naaim is None and vix is not None:
+        if vix < 13:
             sentiment_extreme = True
 
     if pct_score >= 0.85 and not sentiment_extreme:
@@ -305,6 +343,8 @@ def compute_market_regime(force: bool = False) -> dict:
         "laggards":      laggards,
         "rotating_out":  rotating_out,
         "sizing_mult":   SIZING_MULTIPLIERS.get(state, 0.5),
+        "data_quality":  "partial" if missing_indexes else "ok",
+        "missing_indexes": missing_indexes,
         "computed_at":   datetime.now().isoformat(),
     }
 
@@ -349,14 +389,14 @@ def compute_sma200w_state(history: list[dict], current_price: float) -> Optional
 
     pct_from_sma = round((current_price - sma200) / sma200 * 100, 1)
 
-    # Detect RECLAIM — was below within last 20 weeks, now above
+    # Detect RECLAIM — spent SUSTAINED time below the SMA, now back above.
+    # A one-week dip doesn't count; the institutional reclaim setup requires
+    # weeks below the line. Compare against the SAME headline sma200, and
+    # require at least 4 of the last 20 weeks to have closed below it.
     reclaim = False
     if len(weekly_closes) >= 20 and current_price > sma200:
-        recent_below = any(
-            c < (sum(weekly_closes[max(0, i-199):i+1]) / min(200, i+1))
-            for i, c in enumerate(weekly_closes[-20:], start=len(weekly_closes)-20)
-        )
-        if recent_below:
+        weeks_below = sum(1 for c in weekly_closes[-20:] if c < sma200)
+        if weeks_below >= 4:
             reclaim = True
 
     if current_price < sma200:
@@ -428,8 +468,14 @@ def check_hard_blocks(
 
     # Block 2: sentiment extreme
     if regime.get("sentiment_extreme"):
+        naaim = regime.get("naaim")
+        vix   = regime.get("vix")
+        if naaim is not None:
+            detail = f"NAAIM {naaim:.0f} > 95 AND VIX {vix:.1f} < 15"
+        else:
+            detail = f"VIX {vix:.1f} < 13 (NAAIM unavailable) — complacency"
         return (
-            f"HARD BLOCK: NAAIM > 95 AND VIX < 15 — extreme sentiment, flush risk. "
+            f"HARD BLOCK: {detail} — extreme sentiment, flush risk. "
             f"No aggressive bullish sizing. Override with --force."
         )
 
@@ -445,15 +491,24 @@ def format_regime_for_llm(regime: dict, sma200w: Optional[dict], sector_etf: Opt
     Formats regime + 200W + sector context into LLM prompt block.
     """
     lines = ["MARKET REGIME (mandatory rules):"]
-    lines.append(f"  State: {regime['state']} (score {regime['score']}/100)")
+    score_str = "UNAVAILABLE" if regime['score'] is None else f"{regime['score']}/100"
+    lines.append(f"  State: {regime['state']} (score {score_str})")
     lines.append(f"  Sizing multiplier: {regime['sizing_mult']:.2f}x normal")
 
-    if regime['state'] == "RISK_OFF":
+    if regime['state'] == "UNKNOWN":
+        lines.append(
+            "  RULE: Regime score is UNAVAILABLE — a core index (SPY/QQQ) failed to fetch. "
+            "Do NOT treat the market as healthy. Cap confidence at LOW and warn the user "
+            "the regime read is incomplete."
+        )
+    elif regime['state'] == "HOLD_CASH":
         lines.append("  RULE: Cap confidence at LOW. Warn user against new bullish premium.")
     elif regime['state'] == "CAUTION":
         lines.append("  RULE: Cap confidence at MEDIUM. Best setups only.")
     elif regime['state'] == "SELECTIVE":
         lines.append("  RULE: Reduce sizing to 75%. Confirm high-conviction setups only.")
+    elif regime['state'] == "DEPLOY":
+        lines.append("  RULE: Regime is healthy — normal sizing permitted. Still require a clean setup.")
 
     # Index summary
     idx_summary = []

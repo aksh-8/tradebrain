@@ -1029,8 +1029,17 @@ def research_ticker(
 
     # market regime + 200W SMA + sector detection
     regime  = compute_market_regime()
-    sma200w = compute_sma200w_state(history, price)
 
+    # 200W SMA needs ~5y of data to build 200 real weekly closes. The shared
+    # `history` above is only 1y (~52 weeks), which forced the approximated
+    # branch every run. Fetch a dedicated 5y window; fall back to 1y history
+    # if the longer fetch fails so this never breaks the research path.
+    try:
+        history_5y = get_price_history(ticker, period="5y")
+        sma200w    = compute_sma200w_state(history_5y, price)
+    except Exception:
+        sma200w    = compute_sma200w_state(history, price)
+        
     # detect sector ETF for rotation warnings
     sector_etf = None
     try:
