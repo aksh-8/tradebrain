@@ -4007,7 +4007,7 @@ def main() -> None:
 
                 try:
                     pre_price = get_spot(pre_ticker)
-                    pre_history = get_price_history(pre_ticker, period="1y")
+                    pre_history = get_price_history(pre_ticker, period="5y")
                     pre_sma200w = compute_sma200w_state(pre_history, pre_price)
                 except Exception:
                     pre_sma200w = None
