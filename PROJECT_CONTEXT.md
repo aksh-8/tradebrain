@@ -1,4 +1,5 @@
 # tradebrain — Project Context
+
 > **For a senior quantitative developer/software engineer joining today.**
 > This document covers everything needed to understand, run, and extend tradebrain from scratch.
 
@@ -6,374 +7,361 @@
 
 ## 1. What Is tradebrain?
 
-tradebrain is a **retail options research and contract selection CLI tool**. It ingests a free-form thesis or ticker from the user, runs quantitative research, evaluates the thesis using a local LLM, and surfaces ranked option contracts with full Greeks, Kelly sizing, and earnings-aware trade structure.
+tradebrain is a **retail options research and contract selection CLI tool**. It ingests a free-form thesis or ticker from the user, runs quantitative research, evaluates the thesis using an LLM (Gemini 2.5 Pro primary, Ollama fallback), and surfaces ranked option contracts with full Greeks, Kelly sizing, market regime awareness, and earnings-aware trade structures.
 
-**The core loop:**
-```
-User types: "NVDA bullish AI infrastructure" --budget 1000
-    ↓
-intake.py        → extract ticker, direction, timeframe, thesis
-research.py      → price, technicals, IV, earnings, analyst, news, LLM verdict
-engine.py        → DTE window (earnings-aware), contract selection
-select.py        → two-pass filter + rank contracts
-bs.py            → Black-Scholes Greeks + Kelly sizing
-cli.py           → display everything in rich terminal UI
-```
+The bot is the researcher and judge; Akash is the executor. Discipline is enforced by the tool: **one-position-per-week, bot-only entries, no manual overrides on strike selection or direction.**
 
 ---
 
-## 2. Repository Structure
+## 2. Who Uses It and How
 
-```
-tradebrain/
-├── src/bot/
-│   ├── models.py          # Dataclasses: Intake, ResearchResult, Pick
-│   ├── config.py          # Settings from .env (bankroll, LLM model, budget defaults)
-│   ├── intake.py          # Parse free-form text → Intake dataclass (LLM + regex fallback)
-│   ├── research.py        # Full research pipeline: price, technicals, LLM thesis check
-│   ├── technicals.py      # Pure-Python technical indicators: SMA/EMA/RSI/MACD/BB/ATR/ADX
-│   ├── engine.py          # Orchestrates research → contract selection → returns picks
-│   ├── select.py          # Two-pass contract selection with relaxation
-│   ├── chain_yf.py        # yfinance wrapper: spot price, option chain, price history (OHLCV)
-│   ├── bs.py              # Black-Scholes: compute_greeks(), kelly_size()
-│   ├── correlations.py    # Sector data, beta, cross-sector signals, company name map
-│   ├── ticker_discovery.py # Auto-discover unknown tickers: validate → classify → add to universe
-│   ├── logger.py          # SQLite trade log: every run saved to trades/log.db
-│   └── cli.py             # Rich terminal UI, all commands: main, history, watch, contract
-├── config/
-│   ├── universe.json      # All known tickers
-│   ├── sectors.json       # 16 sectors with leader, beta_to_leader, company_name_map
-│   └── watchlist.json     # Morning scan tickers
-├── tests/
-│   ├── test_engine.py     # Basic engine smoke test
-│   └── check_log.py       # SQLite log checker
-├── trades/
-│   └── log.db             # SQLite — auto-created, gitignored
-├── .env                   # Machine-specific secrets (gitignored)
-├── .env.example           # Template
-└── pyproject.toml         # Package config
-```
+**Akash Biswal** — retail options trader and solo developer. Trades on Robinhood via bot-recommended contracts. Runs the bot on **Mac M4 Pro (primary)** and **Windows work PC (secondary)** via PowerShell/CLI. Repo synced via Git: **github.com/aksh-8/tradebrain**, single main branch, SSH auth on Mac.
 
----
+Employed at Porsche, enrolled in DBA program at Westcliff University.
 
-## 3. Machine Setup
+### Typical workflow
 
-**Two machines — different LLM models:**
+1. Ingest market intelligence (Talon weekly reports, Twitter/X collections, YouTube summaries)
+2. Claude produces analysis and a formatted batch run
+3. Akash pastes commands directly into terminal
+4. Bot handles strike selection, DTE, IV rank filtering, regime sizing modifier, and Kelly-based sizing
+5. Trades logged into paper/real accounts, exit signals monitored via `tradebrain portfolio`
 
-| Machine | OS | Ollama Model | .env |
-|---|---|---|---|
-| Mac M4 Pro (primary) | macOS | qwen2.5:14b (Metal GPU) | `OLLAMA_MODEL=qwen2.5:14b` |
-| Windows work PC | Windows 11 | qwen2.5:7b (CPU) | `OLLAMA_MODEL=qwen2.5:7b` |
-
-**Installation:**
+### Batch run format
 ```bash
-cd tradebrain
-python -m venv .venv
-source .venv/bin/activate        # Mac
-.venv\Scripts\activate           # Windows
-pip install -e .
-pip install yfinance rich python-dotenv requests ddgs
+tradebrain "TICKER bullish/bearish thesis" --deep --llm gemini
 ```
-
-**`.env` file (create per machine, never commit):**
-```
-BANKROLL_USD=2000
-OLLAMA_MODEL=qwen2.5:14b
-OLLAMA_URL=http://localhost:11434/api/generate
-OLLAMA_TIMEOUT=120
-DEFAULT_BUDGET_USD=300
-```
-
-**Ollama:**
-- Mac: `ollama serve` in terminal, or let the app handle it
-- Windows: Ollama UI runs automatically on startup
-- Models: `ollama pull qwen2.5:14b` (Mac) / `ollama pull qwen2.5:7b` (Windows)
+The `--deep` flag enables deeper research context (article summaries pulled from web).
 
 ---
 
-## 4. CLI Commands
+## 3. Codebase Architecture
 
-```bash
-# Main research
-tradebrain "NVDA bullish AI infrastructure" --budget 1000
-tradebrain "NVDA bullish" --budget 1000 --deep          # 5 articles, deeper LLM
-tradebrain "AMD calls" --budget 500 --direction bullish  # force direction
-tradebrain "AMD bullish" --budget 500 --bankroll 20000  # override Kelly bankroll
+Roughly 10,000+ lines of Python. Pure-Python numerics — no scipy dependency. Rich terminal UI. SQLite for persistence.
 
-# Multi-ticker
-tradebrain "AMD NVDA MSFT bullish" --budget 500
+### Core modules
 
-# History
-tradebrain history --last 10
-tradebrain history --ticker AMD
-tradebrain history --id 5
+**`bot/cli.py`** — main CLI entry point. Commands:
+- `tradebrain <thesis>` — main research + picks command
+- `tradebrain regime` — display market regime state
+- `tradebrain portfolio` — open positions + exit signals + account overview
+- `tradebrain account --deposit/--withdraw/--history` — capital tracking
+- `tradebrain history` — past runs
+- `tradebrain watch <ticker>` — watchlist add
+- `tradebrain watchlist show/add/remove` — watchlist management
+- `tradebrain contract` — direct contract analysis
+- `tradebrain flow` — parse flow alerts
+- `tradebrain log-trade` — log a trade (paper or real)
+- `tradebrain close-trade ID` — close position
+- `tradebrain add-to-trade ID` — average into position
+- `tradebrain trim-trade ID --contracts N --exit-cost X` — partial close
+- `tradebrain delete-trade ID` — remove erroneous trade
+- `tradebrain rerun ID` — rerun past thesis with fresh prices
+- `tradebrain review ID` — review open position with fresh analysis
+- `tradebrain batch <file>` — batch run from thesis file
+- `tradebrain reset --paper/--real --confirm` — nuke trades, reset to bankroll
 
-# Morning scan
-tradebrain watch
-tradebrain watch --budget 500 --direction bullish
+Key display functions:
+- `_print_picks()` — main contracts table with **Delta, Theta/day, Vega, PoP** columns (all color-coded)
+- `_print_pre_earnings_picks()` — Structure 1 (Pre-Earnings Run-Up Play, yellow panel, expires BEFORE earnings)
+- `_print_research()` — technicals + regime + macro + sector + 200W SMA context
+- `_print_kelly_sizing()` — Kelly recommendation panel
+- `_print_contract_signals()` — combined EMA + P&L exit rules for open positions
 
-# Contract analysis (recently built, may need further testing)
-tradebrain contract "INTC $35c 2026-06-18" --budget 200
-```
+**`bot/research.py`** — thesis evaluation pipeline. Builds Gemini prompt with:
+- Price context (spot, 5D/1M change, 52W range)
+- Technicals block (SMAs, EMAs, RSI, MACD, BB, ATR, ADX, volume)
+- Weekly EMA extension signal, U&R signal, setup signal
+- Expected move (from ATM straddle), IV skew, term structure
+- 200W SMA state (fetches 5 years of history)
+- Macro calendar (21-day horizon)
+- Market regime block (state, sector rotation, sentiment)
+- News summary (via DDG or deep-mode article scrape)
+- Analyst target and upside %
+- Earnings warning if within 14 days
 
----
+**`bot/technicals.py`** — pure-Python numerics:
+- SMA 9/20/50/100/200, EMA 8/9/20/21/50
+- RSI 14 (with note: overbought/oversold/neutral)
+- MACD line/signal/histogram (with bullish/bearish/neutral note)
+- Bollinger Bands (20, 2σ) with %B and note
+- ATR 14
+- ADX 14 (strong/developing/weak trend classification)
+- Volume ratio + volume contraction (sellers drying up detection)
+- Weekly 8/21 EMA (daily-to-weekly resampled)
+- Weekly EMA extension signal (five states: EXTENDED / ELEVATED / AT WEEKLY 8 EMA / SLIGHTLY BELOW / BELOW)
+- U&R (Undercut & Rally) detection with 2% threshold
+- Setup signal (PULLBACK TO EMA / AT EMA SUPPORT / EXTENDED + OVERBOUGHT / EXTENDED / BELOW EMA CLUSTER / COILING NEAR HIGH)
+- EMA exit signal function for portfolio positions
 
-## 5. Core Architecture Decisions
+**`bot/select.py`** — contract filtering + ranking. Two-pass filter (strict then relaxed OTM window). Every pick includes full Black-Scholes Greeks via `compute_greeks()`. Ranking penalizes wide spreads, low OI/volume, moneyness deviation, budget usage, high IV.
 
-### Intake — two paths
-`parse_intake()` tries LLM first (Ollama), falls back to regex if Ollama is down:
-- LLM path: structured JSON extraction, handles company names, complex theses
-- Regex path: `detect_direction()`, `detect_timeframe()`, ticker extraction via 3-pass system
-- Both paths call `ticker_discovery.discover_and_add()` for unknown tickers
+**`bot/bs.py`** — pure-Python Black-Scholes (Abramowitz & Stegun approximation for norm CDF, no scipy):
+- `compute_greeks()` — delta / gamma / theta_per_day / vega / prob_itm / prob_profit
+- `kelly_size()` — half-Kelly with per-contract sizing recommendation
+- `monte_carlo_probs()` — GBM simulation for P(2x)/P(3x)/P(5x)/P(10x) with dollar targets. **Function exists; not yet wired into picks display.**
 
-### Research pipeline
-`research_ticker()` in `research.py`:
-1. `get_spot()` + `get_price_history(ticker, period="1y")` — live price + 1 year OHLCV
-2. `compute_technicals(history)` → SMA 9/20/50/100/200, EMA, RSI, MACD, Bollinger, ATR, ADX, volume
-3. `_get_hv_rank(history)` — HV rank (0-100) from 30-day realized vol vs 6-month range
-4. `_get_unusual_options()` — detects volume > OI as unusual flow signal
-5. `_get_earnings_days_away()` — yfinance calendar
-6. `_get_analyst_data()` — consensus rating, mean target, upside
-7. `_get_news(ticker, deep=False)` — DDG headlines + full article fetch from trusted sources
-8. `_check_thesis()` — Ollama LLM evaluates thesis with all data including full technicals block
+**`bot/market_regime.py`** — full market regime module.
+- Four action-based states: **DEPLOY, SELECTIVE, CAUTION, HOLD_CASH** (renamed from RISK_ON/RISK_OFF for clarity)
+- Monitors SPY / QQQ / SMH / DRAM (QQQ weighted 2x)
+- Seven sector ETFs: XLK / XLV / XLF / XLE / XLI / XLC / XLY
+- Sentiment: VIX + NAAIM (CSV scrape, flaky)
+- 200W SMA state per ticker (informational + RECLAIM boost 1.5x sizing)
+- Hard blocks fire on: (sector rotating out AND HOLD_CASH), (NAAIM > 95 AND VIX < 15)
+- `--force` flag bypasses hard blocks
+- 1-hour cache during market hours, 4-hour cache after hours
 
-### Direction override logic
-```
-contradicted + high confidence   → FLIP direction (THESIS OVERRIDE)
-contradicted + medium confidence → warn, proceed with user direction (THESIS WARNING)
-contradicted + low confidence    → warn, proceed (THESIS CONTRADICTED)
-neutral + low confidence         → no strong signal
-```
+**`bot/macro_calendar.py`** — static calendar (FOMC / CPI / NFP / OpEx / PCE / Jackson Hole) through Aug 2026. Injects 21-day-ahead events into every Gemini prompt with sizing guidance based on event proximity.
 
-### Earnings-aware DTE
-`_dte_window()` in `engine.py`:
-```
-Earnings today      → post-earnings only, warning
-Earnings 1-3 days   → post-earnings only
-Earnings 3-30 days  → TWO tables: Structure 3 (post) + Structure 1 (pre, exit before)
-Earnings > 30 days  → normal window
-```
+**`bot/ticker_discovery.py`** — auto-classify unknown tickers via yfinance sector/industry + LLM fallback. Default fallback: `retail` (previously `big_tech`, caused misclassifications). LLM prompt explicitly warns against big_tech overuse.
 
-### Two-pass contract selection
-`select_contracts()` in `select.py`:
-- Pass 1: strict OTM window (5-15%), normal liquidity filters
-- Pass 2: relaxed OTM (0-20%), looser filters — if pass 1 returns nothing
-- Contracts ranked by: spread, OI, volume, OTM proximity to target, budget utilization
+**`bot/correlations.py`** — sector info per ticker. Provides `get_sector(ticker) → SectorInfo(slug, leader, tickers, beta_to_leader)`. Used for regime sector detection and sector rotation warnings.
 
-### Black-Scholes Greeks
-`compute_greeks()` in `bs.py` — pure Python, no scipy:
-- delta, gamma, theta ($/day/contract), vega ($/1pt IV), prob_itm, prob_profit
-- `kelly_size()` uses bankroll from `.env`, 3x target multiple, half-Kelly formula
+**`bot/logger.py`** — SQLite persistence. Tables: `paper_trades` (both paper and real), `runs` (research history), `account_transactions` (deposits/withdrawals ledger). `realized_pnl_partial` column tracks P&L from trim-trade for buying power accuracy.
 
----
+**`bot/chain_yf.py`** — yfinance options chain wrapper. `get_chain(ticker, expiry)`, `get_expirations(ticker)`, `get_spot(ticker)`, `get_price_history(ticker, period)`.
 
-## 6. Key Data Models
+**`bot/models.py`** — dataclasses:
+- `Intake` — parsed user input (raw text, tickers, direction, thesis, timeframe, budget)
+- `ResearchResult` — everything research pipeline found (price, technicals, options, analyst, thesis verdict, regime, 200W state, sector ETF, hard block, sizing multiplier)
+- `Pick` — recommended contract (strike, side, expiry, DTE, bid/ask/mid, cost, breakeven, OTM%, IV, OI, spread, full Greeks, rank score)
 
-### `Intake` (frozen dataclass)
-```python
-raw_text: str
-tickers: tuple[str, ...]          # primary ticker first
-context_tickers: tuple[str, ...]  # mentioned but not the trade
-direction: "bullish" | "bearish" | "unknown"
-thesis: Optional[str]
-timeframe: "this week" | "this month" | "1-3 months" | "unknown"
-budget: float
-```
+**`bot/config.py`** — env loader. Reads BANKROLL_USD, PAPER_BANKROLL, DEFAULT_BUDGET_USD, LLM_PROVIDER, GEMINI_API_KEY, GEMINI_MODEL, GEMINI_MODEL_FALLBACK, OLLAMA_URL, OLLAMA_MODEL from `.env`. Loads `universe.json` for known tickers and proxy mapping.
 
-### `ResearchResult` (frozen dataclass)
-```python
-ticker, price, price_change_5d, price_change_1m
-week_52_high, week_52_low
-sma50, sma200, above_sma50, above_sma200
-iv_rank                    # HV rank 0-100
-unusual_options_activity   # string description of unusual flow
-analyst_target, analyst_upside, analyst_rating
-avg_volume, earnings_days_away
-news_summary               # pipe-separated headlines
-thesis_verdict             # "supported" | "contradicted" | "neutral"
-thesis_reasoning           # LLM reasoning string
-recommended_direction      # "bullish" | "bearish" | "unknown"
-confidence                 # "high" | "medium" | "low"
-skip_reason
-```
+### Data files
 
-### `Pick` (frozen dataclass)
-```python
-ticker, expiration, strike, side, dte
-bid, ask, mid, cost, breakeven, otm_pct
-iv, iv_rank, oi, volume, spread_pct
-delta, gamma, theta, vega, prob_itm, prob_profit
-rank_score, why, relaxed, relax_note
-```
+- **`config/sectors.json`** — sector definitions (slug, leader, tickers, beta_to_leader). 25 sectors. big_tech contains only MSFT/GOOGL/AMZN/AAPL/ORCL after cleanup.
+- **`config/universe.json`** — all known tickers + proxy map (e.g., SPY→IWM if signal ticker has no liquid options)
+- **`config/watchlist.json`** — user's watchlist for `tradebrain watchlist show/add/remove`
+- **`trades/log.db`** — SQLite database
 
 ---
 
-## 7. Sectors Configuration
+## 4. Trading Philosophy This Bot Serves
 
-`config/sectors.json` has 16 sectors:
-- semis_compute (leader: NVDA)
-- semis_memory (leader: MU)
-- semis_equipment (leader: AMAT)
-- ai_infra (leader: NBIS)
-- big_tech (leader: MSFT)
-- ai_software (leader: PLTR)
-- cloud_cyber (leader: CRWD)
-- cyber_nextgen (leader: CRWD)
-- robotics (leader: PATH)
-- healthtech (leader: HIMS)
-- crypto_miners (leader: MARA)
-- quantum (leader: IONQ)
-- etfs (leader: SPY)
-- energy_infra (leader: SMR)
-- ai_data (leader: PLTR)
-- fintech (leader: COIN)
+- Options swing trades, 30-45 DTE typically
+- Momentum breakout system from Sean's TradingView thread (8 / 21 / 50 daily EMA)
+- Long-term investor 200W SMA framework (buy at zone or reclaim, per Sean's second thread)
+- AI supercycle names as primary universe (NBIS, CRWV, IREN, AMD, MU, NVDA, PLTR, etc.)
+- Contrarian buying at fear extremes (Graham / Buffett thinking) — **CAPITULATION mode pending**
+- **Pre-earnings momentum plays supported via Structure 1** (contracts expiring before earnings, exit 1-2 days before report, never take earnings risk) — already built
+- **Post-earnings event plays supported via Structure 2** (contracts expiring after earnings, take event exposure) — already built
 
-Each sector has: `leader`, `leader_note`, `tickers`, `beta_to_leader`, `correlated_sectors`, `macro_sensitivity`, `risk_note`, `cross_sector_signals`.
-
-**IMPORTANT:** `sectors.json` must be saved as **UTF-8** encoding. Windows cp1252 causes UnicodeDecodeError on the em-dash characters. All JSON reads in the codebase use `encoding="utf-8"`.
+Both structures are surfaced simultaneously. User chooses their strategy.
 
 ---
 
-## 8. Auto-Ticker Discovery
+## 5. Current State (Session Close)
 
-`ticker_discovery.py` — when an unknown ticker appears in intake:
-1. Validate via yfinance (`get_spot()`)
-2. Pull `yf.Ticker().info` — sector, industry, company name
-3. Classify sector using `_INDUSTRY_MAP` → `_SECTOR_MAP` priority lookup
-4. Compute real beta vs sector leader from 3mo price history correlation
-5. Add to `universe.json` tickers list
-6. Add to correct sector in `sectors.json` (tickers + beta_to_leader)
-7. Add company name to `company_name_map`
+### Live modules — all confirmed working
 
-Called automatically from both `_llm_parse()` and `_regex_parse()` in `intake.py`.
+- `market_regime.py` — full state machine with DEPLOY / SELECTIVE / CAUTION / HOLD_CASH
+- `technicals.py` — full TA library with weekly EMA, U&R, setup signals
+- `macro_calendar.py` — events through Aug 2026
+- `research.py` — full LLM prompt builder with regime/macro/sector/200W injection
+- `bs.py` — Greeks, Kelly, Monte Carlo probability simulator
+- `select.py` — contract filtering + ranking with full Greeks
+- `ticker_discovery.py` — corrected auto-classification with retail default
+- `logger.py` — trades + transactions + partial P&L tracking
+- `cli.py` — all commands functional. Picks table shows Delta/Theta/Vega/PoP. Two earnings structures both displayed.
 
----
+### Known bugs (see NEXT_STEPS.md audit section)
 
-## 9. Technical Indicators
+- **Bug 3** — sentiment_extreme disabled when NAAIM missing
+- **Bug 5** — hard-block vs display divergence in cli.py (needs verification)
+- **Bug 6** — 200W RECLAIM detection re-review
+- **Bug 7** — cache day-boundary staleness (low priority)
+- **Bug 8** — sector `pct_5d or 0` masks broken fetches (low priority)
 
-`technicals.py` — pure Python, no external libraries:
-- **SMA**: 9D, 20D, 50D, 100D, 200D
-- **EMA**: 9D, 20D, 50D
-- **RSI(14)**: with overbought/oversold note
-- **MACD(12,26,9)**: line, signal, histogram, bullish/bearish note
-- **Bollinger Bands(20,2)**: upper, mid, lower, %B position note
-- **ATR(14)**: daily range expectation in dollars
-- **ADX(14)**: trend strength
-- **Volume**: vs 20D average, ratio note
+### Recent bug fixes committed this session
 
-`format_technicals_for_llm()` renders all indicators into a clean string injected into the LLM thesis evaluation prompt.
-
-Requires `period="1y"` in `get_price_history()` to compute 200D SMA.
-
----
-
-## 10. LLM Prompt Engineering
-
-`_check_thesis()` in `research.py` — two prompts:
-- **With thesis**: evaluates user thesis against all data
-- **Without thesis**: pure directional analysis
-
-Key prompt rules added:
-- TECHNICAL ANALYSIS RULES: explicitly instructs LLM to address SMA confluences, price targets, RSI/MACD, support/resistance mentioned in thesis
-- CRITICAL ticker anchor: instructs LLM to ignore other company names in article context
-- Always address earnings risk if < 21 days
-- Always comment on IV environment
-
-**Known LLM limitation**: With qwen2.5:7b on Windows, article context can cause ticker confusion (saw ARM analysis for TSLA). qwen2.5:14b on Mac is significantly better. Claude API is the recommended upgrade path for production reliability.
+- Auto-discovery sector classification (consumer/retail no longer misclassified as big_tech)
+- sectors.json cleanup (12 tickers moved to correct sectors, 3 duplicates removed)
+- market_regime.py CORE_INDEXES guard (UNKNOWN state when SPY/QQQ fails)
+- Regime state names renamed to DEPLOY/HOLD_CASH
+- 200W SMA integration softened (informational + RECLAIM boost only, no hard blocks)
+- yfinance nearest-expiry fallback (Monday weeklies like 2026-07-27)
+- Trim-trade command with buying power update
+- Reset portfolio command (with account_transactions bug fix: `account_type` → `trade_type`)
+- Batch and rerun `--deep` flag support
+- Gemini model upgrade to 2.5-pro with 2.5-flash fallback on 503s
+- `--force` flag on research
+- Real account panel always shows when bankroll configured
+- SSH GitHub auth on Mac
 
 ---
 
-## 11. News Pipeline
+## 6. Current Trading Context
 
-`_get_news(ticker, deep=False)` in `research.py`:
-- DDG search: `"{ticker} stock"` or `"{ticker} {company_name} stock"` for ≤2 char tickers
-- Standard mode: 10 DDG results, fetch 3 articles, 400 words each
-- Deep mode (`--deep`): 15 DDG results, fetch 5 articles, 600 words each
-- Source filtering: blocks bloomberg.com, wsj.com, ft.com, barrons.com (paywalled)
-- Prefers: reuters.com, cnbc.com, marketwatch.com, fool.com, benzinga.com
-- Full article text passed to LLM as `article_context` in thesis check prompt
+### Portfolio (session close)
 
----
+- **Paper account:** $10,000 starting, $19,260 total, +92.6%, 22/39 win rate (56%), +$9,259 realized P&L
+- **Real account:** $4,000 bankroll, $4,150 total, +3.8%, 3/5 win rate (60%), +$330 realized P&L
+- **Open positions:** None
+- **Available buying power:** $3,110 real, $19,260 paper
+- **Last two closes:** MSFT #79 (+$710, +68.3%), DRAM #78 (-$180, -15%)
 
-## 12. SQLite Trade Log
+### Current market regime
 
-`logger.py` — auto-creates `trades/log.db`:
-- `runs` table: id, ts, ticker, direction, budget, verdict, confidence, iv_rank, earnings_days, reasoning, news, thesis
-- `picks` table: run_id, rank, ticker, strike, side, expiration, cost, breakeven, oi, spread_pct
+- **State:** HOLD_CASH (score 20/100)
+- **Indexes:** SPY holding above all EMAs. QQQ, SMH, DRAM all below all EMAs.
+- **Sectors leading:** XLE (+4.0%), XLF (+2.2%), XLC (+1.9%)
+- **Sectors rotating out:** XLI, XLK
+- **VIX:** 16.6 (normal)
+- **NAAIM:** unavailable this session (CSV fetch flaky)
 
-Functions: `log_run()`, `get_recent_runs()`, `get_runs_by_ticker()`, `get_run_detail()`, `get_run_picks()`
+Waiting for: QQQ reclaims 21 EMA, VIX spike >22 for contrarian setup, or index-level RECLAIM signal.
 
----
+### Rules currently in effect
 
-## 13. Known Issues / Technical Debt
-
-| Issue | Severity | Status |
-|---|---|---|
-| Off-hours lastPrice fallback returns stale deep ITM prices | Medium | Known, affects budget suggestions off-hours |
-| qwen2.5:7b ticker confusion in article context | High | Known, use --deep sparingly on Windows |
-| Sectors.json encoding must be UTF-8 | Medium | Fixed, must maintain |
-| Auto-discovery sector classification not perfect | Low | `_INDUSTRY_MAP` covers most cases |
-| Kelly always says "no edge" for PoP < 33% at 3x target | By design | Not a bug, math is correct |
-| Contract mode recently built, needs testing | Medium | Test during market hours |
+- Mega-cap AI names (GOOGL, MSFT, META, AMZN) blocked during earnings windows
+- Weekly batch runs use `--deep --llm gemini`
+- Kelly threshold: +100% for DTE<21 trim, no lower
+- EMA is senior exit signal — overrides contract P&L rules
 
 ---
 
-## 14. Git Workflow
+## 7. Key Learnings & Principles
 
-```bash
-# Development branch
-git checkout dev
-# ... make changes ...
-git add .
-git commit -m "feat/fix/refactor: description"
-git push origin dev
-
-# Merge to main
-git checkout main
-git merge dev
-git push origin main
-git checkout dev
-
-# Sync between machines
-git pull origin dev
-git pull origin main
-```
-
-Mac is primary dev machine. Windows pulls and tests. Both machines have separate `.env` files with machine-specific LLM model settings.
+- **Contract structure is upstream of thesis quality.** Strike and expiry selection are load-bearing, not details. The two-structure system exists for this reason.
+- **Dead-cat bounces vs. genuine reclaims require structural evidence.** A single-day bounce off a drawdown is not a trend reclaim without a retest.
+- **The bot's skip-heavy, slow outputs are features, not failures.** Regime filters and hard-block conditions that return no trades are working correctly.
+- **200W SMA is display-only for most states + RECLAIM boost.** Hard blocks removed — extended mega-caps are legitimately extended in the AI supercycle. Only RECLAIM gets sizing boost (1.5x, INTC/MU-style setup).
+- **Strike selection must match the stated thesis.** A 200W SMA support-bounce thesis requires high-delta (~0.55–0.65) ATM strike, not a 9% OTM strike with breakeven in resistance.
+- **Recovery trading has negative expected value.** Chasing losses via oversized or 0DTE positions breaks the framework and compounds drawdowns.
+- **NAAIM as a live signal is flaky.** VIX-only froth detection is the fallback. Any planned feature depending on NAAIM (like CAPITULATION mode) needs explicit None-path handling.
+- **Regime states should be action-oriented labels (DEPLOY not RISK_ON).** Clarity beats jargon.
+- **Contrarian buying at fear extremes is a valid quant edge, not just retail cliché.** CAPITULATION mode is a real signal a quant would use. Best entries in history (Oct 2022, Mar 2020, Dec 2018) all looked like HOLD_CASH regimes at the time.
+- **Sector classification must be defensive.** Wrong sector assignment breaks beta calculations and rotation detection.
+- **yfinance has gaps for Monday weeklies.** Fallback to nearest expiry gracefully.
+- **Follow bot signals or don't trade with them.** Every held-past-signal position (CRWV +300%→+50%, PLTR held past EMA sell, MSFT held past exit) validated the discipline framework by failing.
+- **Pre-earnings expiry is not a defect.** Structure 1 is deliberate — capture the run-up, exit 1-2 days before the report. Do not conflate this with "bot picked wrong expiry."
 
 ---
 
-## 15. Testing
+## 8. Approach & Working Patterns
 
-```bash
-# Smoke tests
-python -c "from bot.engine import run, run_multi; print('engine OK')"
-python -c "from bot.cli import main; print('cli OK')"
-python -c "from bot.research import research_ticker; print('research OK')"
-python -c "from bot.technicals import compute_technicals; print('technicals OK')"
-python -c "from bot.ticker_discovery import discover_and_add; print('discovery OK')"
+### Regime discipline
+When regime is HOLD_CASH, sit on cash — this is a position too. Don't force trades in bad environments. Wait for setup to come (index reclaim, capitulation signal, sector leader emerging).
 
-# Full engine test
-python tests/test_engine.py
+### Decision style expected from Claude
+- Direct calls, no option menus
+- No thinking-out-loud procedure
+- Explanatory and instructive tone only
+- Six-point trade analysis framework when reviewing bot output:
+  1. Thesis verdict accuracy
+  2. Contract quality
+  3. Missing risks
+  4. Trade viability
+  5. Specific contract and exit plan if entering
+  6. Conditions required before trade becomes viable
 
-# Market hours test (requires live data)
-tradebrain "AMD bullish breakout" --budget 3000
-tradebrain watch
-```
+### Code delivery
+Always provide **downloadable `.py` script files** for tests — never shell one-liners or `python3 -c "..."` (breaks in PowerShell). Read the live/uploaded file before making claims about its contents; uploaded files take precedence over project knowledge.
+
+### Verification standard
+Confirm fixes landed in actual working files before marking done. Verify on live data where possible. **Before marking any feature as "pending" in roadmap docs, verify it doesn't already exist in the codebase.** Roadmap items marked pending when they're actually built waste user time and destroy trust.
+
+### Git hygiene
+Commit and push to main. `log.db` should be in `.gitignore`. GitHub auth via SSH on Mac (no token expiry).
+
+### Behavioral guardrails Claude must observe
+- Read what user pastes carefully. Don't misread numbers.
+- One step at a time. Don't stack changes.
+- Make decisions like a senior quant — don't give menus of options.
+- Ask for the exact file/context you need before writing code.
+- When user pastes terminal output, quote the exact number they said, not what you assumed.
+- Before adding anything to the pending roadmap, verify it doesn't already exist in code.
 
 ---
 
-## 16. Dependencies
+## 9. Tools & Environment
 
-```
-yfinance        # price data, option chains, earnings calendar, analyst data
-rich            # terminal UI
-python-dotenv   # .env loading
-requests        # Ollama HTTP calls
-ddgs            # DuckDuckGo news search (must be installed in .venv, not conda)
-```
+- **Runtime:** Python 3.14, yfinance, Rich terminal UI, SQLite, pure-Python Black-Scholes (no scipy)
+- **LLM:** Gemini 2.5 Pro (primary), Gemini 2.5 Flash (fallback on 503). Ollama qwen2.5:7b as offline fallback.
+- **Execution platform:** Robinhood (options trading)
+- **Investment platforms:** Fidelity (ETF SIP), Wealthfront (cash), Acorns (winding down)
+- **Market intelligence sources:** Talon weekly sector reports, aibottlenecks.app thesis framework, Twitter/X collections, YouTube summaries
+- **Budgeting:** Spendee (manual cash-flow tracker)
+- **Dev environment:** Mac M4 Pro (primary, SSH auth), Windows work PC (secondary, HTTPS auth); Git for sync via github.com/aksh-8/tradebrain (single main branch)
 
-**Windows gotcha**: `ddgs` must be installed in the `.venv`, not the conda base. Use:
-```powershell
-.venv\Scripts\python.exe -m pip install ddgs
-```
+### Modules & features by category
+
+**Regime & context injection into every research run:**
+- Market regime (state machine + sector rotation + sentiment)
+- Macro calendar (21-day event horizon)
+- 200W SMA state per ticker
+- Sector ETF context
+
+**Per-ticker technical intelligence:**
+- Full TA library (SMAs, EMAs, RSI, MACD, BB, ATR, ADX, volume)
+- Weekly 8 EMA extension signal
+- U&R (Undercut & Rally) detection
+- Setup signal (PULLBACK TO EMA / AT EMA SUPPORT / EXTENDED / COILING NEAR HIGH etc.)
+- EMA exit signal for portfolio positions
+
+**Options analytics:**
+- Full Black-Scholes Greeks (delta, gamma, theta, vega, prob_itm, prob_profit) on every pick
+- Kelly sizing recommendation with half-Kelly
+- Monte Carlo P(2x/3x/5x/10x) simulation — function exists, display wiring pending
+- Expected move (from ATM straddle), IV skew, term structure
+- HV rank as IV rank proxy
+- Two-structure earnings play system (Structure 1 pre-earnings + Structure 2 post-earnings)
+
+**Position management:**
+- Log, close, add-to, trim, delete trades
+- Combined EMA + P&L exit signals
+- Kelly sizing panel
+- Buying power tracking with partial-close accounting
+- Deposit/withdrawal ledger
+
+**Portfolio operations:**
+- Paper and real account overview panels
+- Exit signals with underlying stock EMA position
+- Contract signals combining EMA + P&L rules
+- Reset command with confirmation
+
+**Utility:**
+- Watchlist management
+- Batch thesis runs from file
+- Rerun past thesis with fresh prices
+- Review open position with fresh Gemini analysis
+
+---
+
+## 10. What's Next
+
+See `NEXT_STEPS.md` for the complete prioritized roadmap. High-level:
+
+**Immediate:**
+- Wire Monte Carlo probabilities into picks table (function exists, needs display)
+- Add structured base detection fields alongside qualitative setup signals
+
+**TIER 0 — Regime quant-level upgrades:**
+- CAPITULATION contrarian mode
+- Index-level RECLAIM signal
+- Quality-vs-market divergence detection
+- Dry powder guidance
+- Full audit of regime edge cases
+
+**Longer term:**
+- Leader scanner (Sean's TradingView criteria)
+- Trade plan generator with entry/stop/targets
+- SEC EDGAR Form 4 fetch
+- `tradebrain morning` command
+- Finviz chart + Claude Vision analysis
+- Chart pattern intelligence (Ichimoku, RSI divergence, GEX approximation)
+- Automation infrastructure (cron, alerts, cloud hosting)
+- Paid data integrations (Unusual Whales, MenthorQ) at $10-25k account milestones
+
+---
+
+## 11. Investment Side (Non-tradebrain)
+
+- Fidelity brokerage consolidation in progress; four-ETF SIP allocation live (50% VTI, 15% IXUS, 15% QQQ, 20% SMH) with $1k/month automated contributions
+- Separate $3k aggressive bucket with single-stock component (~$300 cap; NBIS, APLD, or NNE — not yet finalized)
+- Porsche tuition reimbursement clawback terms need follow-up research
+
+---
+
+*Last updated: session close, July 2026*
